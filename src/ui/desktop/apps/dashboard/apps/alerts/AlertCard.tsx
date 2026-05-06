@@ -71,7 +71,7 @@ export function AlertCard({
   alert,
   onDismiss,
   onClose,
-}: AlertCardProps): React.ReactElement {
+}: AlertCardProps): React.ReactElement | null {
   const { t } = useTranslation();
 
   if (!alert) {
@@ -81,18 +81,6 @@ export function AlertCard({
   const handleDismiss = () => {
     onDismiss(alert.id);
     onClose();
-  };
-
-  const formatExpiryDate = (expiryString: string) => {
-    const expiryDate = new Date(expiryString);
-    const now = new Date();
-    const diffTime = expiryDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return t("common.expired");
-    if (diffDays === 0) return t("common.expiresToday");
-    if (diffDays === 1) return t("common.expiresTomorrow");
-    return t("common.expiresInDays", { days: diffDays });
   };
 
   return (
@@ -123,9 +111,6 @@ export function AlertCard({
               {alert.type}
             </Badge>
           )}
-          <span className="text-sm text-muted-foreground">
-            {formatExpiryDate(alert.expiresAt)}
-          </span>
         </div>
       </CardHeader>
       <CardContent className="pb-4">
@@ -136,7 +121,7 @@ export function AlertCard({
       <CardFooter className="flex items-center justify-between pt-0">
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleDismiss}>
-            Dismiss
+            {t("common.dismiss")}
           </Button>
           {alert.actionUrl && alert.actionText && (
             <Button

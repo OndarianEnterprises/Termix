@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
 import { toast } from "sonner";
 import { getBasePath } from "@/lib/base-path";
+import { isElectron } from "@/lib/electron";
 import { clearTermixSessionStorage } from "@/ui/desktop/navigation/tabs/TabContext";
 import type {
   SSHHost,
@@ -8,6 +9,8 @@ import type {
   SSHFolder,
   TunnelConfig,
   TunnelStatus,
+  TunnelConnection,
+  C2STunnelPreset,
   FileManagerFile,
   FileManagerShortcut,
   DockerContainer,
@@ -86,6 +89,27 @@ export type SSHHostWithStatus = SSHHost & {
   status: "online" | "offline" | "unknown";
 };
 
+type ApiConnectionLog = {
+  type: "info" | "success" | "warning" | "error";
+  stage: string;
+  message: string;
+  details?: Record<string, unknown>;
+};
+
+type ConnectErrorResponse = {
+  error?: string;
+  message?: string;
+  connectionLogs?: ApiConnectionLog[];
+  requires_totp?: boolean;
+  requires_warpgate?: boolean;
+  sessionId?: string;
+  prompt?: string;
+  url?: string;
+  securityKey?: string;
+  status?: string;
+  reason?: string;
+};
+
 interface CpuMetrics {
   percent: number | null;
   cores: number | null;
@@ -113,7 +137,6 @@ export type ServerMetrics = {
 };
 
 interface AuthResponse {
-  token: string;
   success?: boolean;
   is_admin?: boolean;
   username?: string;
@@ -144,18 +167,24 @@ interface OIDCAuthorize {
   auth_url: string;
 }
 
+type ElectronApi = {
+  isElectron?: boolean;
+  getSetting?: (key: string) => Promise<string | null | undefined>;
+  setSetting?: (key: string, value: string) => Promise<void>;
+};
+
+type ElectronWindow = Window &
+  typeof globalThis & {
+    IS_ELECTRON?: boolean;
+    electronAPI?: ElectronApi;
+    ReactNativeWebView?: unknown;
+  };
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
-export function isElectron(): boolean {
-  const win = window as any;
-  const hasISElectron = win.IS_ELECTRON === true;
-  const hasElectronAPI = !!win.electronAPI;
-  const isElectronProp = win.electronAPI?.isElectron === true;
-
-  return hasISElectron || hasElectronAPI || isElectronProp;
-}
+export { isElectron };
 
 function getLoggerForService(serviceName: string) {
   if (serviceName.includes("SSH") || serviceName.includes("ssh")) {
@@ -183,10 +212,10 @@ const electronSettingsCache = new Map<string, string>();
 if (isElectron()) {
   (async () => {
     try {
-      const electronAPI = (window as any).electronAPI;
+      const electronAPI = (window as ElectronWindow).electronAPI;
 
       if (electronAPI?.getSetting) {
-        const settingsToLoad = ["rightClickCopyPaste", "jwt"];
+        const settingsToLoad = ["rightClickCopyPaste"];
         for (const key of settingsToLoad) {
           const value = await electronAPI.getSetting(key);
           if (value !== null && value !== undefined) {
@@ -208,27 +237,28 @@ if (isElectron()) {
   })();
 }
 
-export function setCookie(name: string, value: string, days = 7): void {
+export function setCookie(
+  name: string,
+  value: string,
+  days = 7,
+): void | Promise<void> {
   if (isElectron()) {
     try {
-      electronSettingsCache.set(name, value);
+      if (name === "jwt") {
+        return;
+      }
 
-      localStorage.setItem(name, value);
-
-      const electronAPI = (
-        window as Window &
-          typeof globalThis & {
-            electronAPI?: any;
-          }
-      ).electronAPI;
+      const electronAPI = (window as ElectronWindow).electronAPI;
 
       if (electronAPI?.setSetting) {
+        electronSettingsCache.set(name, value);
+        localStorage.setItem(name, value);
         electronAPI.setSetting(name, value).catch((err: Error) => {
           console.error(`[Electron] Failed to persist setting ${name}:`, err);
         });
       }
 
-      console.log(`[Electron] Set setting: ${name} = ${value}`);
+      console.log(`[Electron] Set setting: ${name}`);
     } catch (error) {
       console.error(`[Electron] Failed to set setting: ${name}`, error);
     }
@@ -241,6 +271,10 @@ export function setCookie(name: string, value: string, days = 7): void {
 export function getCookie(name: string): string | undefined {
   if (isElectron()) {
     try {
+      if (name === "jwt") {
+        return undefined;
+      }
+
       if (electronSettingsCache.has(name)) {
         return electronSettingsCache.get(name);
       }
@@ -266,6 +300,44 @@ export function getCookie(name: string): string | undefined {
 }
 
 let userWasAuthenticated = false;
+let latestAuthSuccessAt = 0;
+
+function markUserAuthenticated(): void {
+  userWasAuthenticated = true;
+  latestAuthSuccessAt =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+export function isCurrentAuthInvalidationError(error: unknown): boolean {
+  const authError = error as {
+    __staleAuthInvalidation?: boolean;
+  };
+
+  if (authError.__staleAuthInvalidation) {
+    return false;
+  }
+
+  const axiosError = error as AxiosError;
+  const apiError = error as ApiError;
+  const responseData = axiosError.response?.data as
+    | Record<string, unknown>
+    | undefined;
+  const errorCode = responseData?.code || apiError.code;
+  const errorMessage = responseData?.error || apiError.message;
+  const status = axiosError.response?.status || apiError.status;
+  const isMissingAuthenticationToken =
+    errorMessage === "Missing authentication token";
+
+  return (
+    status === 401 &&
+    (errorCode === "SESSION_EXPIRED" ||
+      errorCode === "SESSION_NOT_FOUND" ||
+      (errorCode === "AUTH_REQUIRED" && userWasAuthenticated) ||
+      errorMessage === "Invalid token" ||
+      (errorMessage === "Authentication required" && userWasAuthenticated) ||
+      (isMissingAuthenticationToken && userWasAuthenticated))
+  );
+}
 
 function createApiInstance(
   baseURL: string,
@@ -282,8 +354,9 @@ function createApiInstance(
     const startTime = performance.now();
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    (config as any).startTime = startTime;
-    (config as any).requestId = requestId;
+    const configWithMetadata = config as AxiosRequestConfigExtended;
+    configWithMetadata.startTime = startTime;
+    configWithMetadata.requestId = requestId;
 
     const method = config.method?.toUpperCase() || "UNKNOWN";
     const url = config.url || "UNKNOWN";
@@ -298,7 +371,6 @@ function createApiInstance(
 
     const logger = getLoggerForService(serviceName);
 
-    const requestBaseURL = config.baseURL || "";
     const isDevMode = process.env.NODE_ENV === "development";
 
     if (isDevMode) {
@@ -311,19 +383,12 @@ function createApiInstance(
       } else {
         config.headers["X-Electron-App"] = "true";
       }
-
-      const token = localStorage.getItem("jwt");
-      if (token) {
-        if (config.headers.set) {
-          config.headers.set("Authorization", `Bearer ${token}`);
-        } else {
-          config.headers["Authorization"] = `Bearer ${token}`;
-        }
-        userWasAuthenticated = true;
-      }
     }
 
-    if (typeof window !== "undefined" && (window as any).ReactNativeWebView) {
+    if (
+      typeof window !== "undefined" &&
+      (window as ElectronWindow).ReactNativeWebView
+    ) {
       let platform = "Unknown";
       if (typeof navigator !== "undefined" && navigator.userAgent) {
         if (navigator.userAgent.includes("Android")) {
@@ -343,46 +408,15 @@ function createApiInstance(
       }
     }
 
-    if (!isElectron()) {
-      const tokenCookie = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("jwt="));
-
-      if (tokenCookie) {
-        const tokenValue = tokenCookie.split("=")[1];
-        if (tokenValue) {
-          // Always add Authorization header as fallback if token is present,
-          // especially important for cross-origin requests where cookies might be blocked
-          const decodedToken = decodeURIComponent(tokenValue);
-          if (config.headers.set) {
-            config.headers.set("Authorization", `Bearer ${decodedToken}`);
-          } else {
-            config.headers["Authorization"] = `Bearer ${decodedToken}`;
-          }
-          userWasAuthenticated = true;
-        }
-      } else {
-        // Check localStorage as fallback even in browser mode
-        const localToken = localStorage.getItem("jwt");
-        if (localToken) {
-          if (config.headers.set) {
-            config.headers.set("Authorization", `Bearer ${localToken}`);
-          } else {
-            config.headers["Authorization"] = `Bearer ${localToken}`;
-          }
-          userWasAuthenticated = true;
-        }
-      }
-    }
-
     return config;
   });
 
   instance.interceptors.response.use(
     (response: AxiosResponse) => {
       const endTime = performance.now();
-      const startTime = (response.config as any).startTime;
-      const requestId = (response.config as any).requestId;
+      const responseConfig = response.config as AxiosRequestConfigExtended;
+      const startTime = responseConfig.startTime;
+      const requestId = responseConfig.requestId;
       const responseTime = Math.round(endTime - (startTime || endTime));
 
       const method = response.config.method?.toUpperCase() || "UNKNOWN";
@@ -452,7 +486,7 @@ function createApiInstance(
       const logger = getLoggerForService(serviceName);
       // A caller can mark a request as a silent retry (see progressive /status
       // retry) so we don't spam error logs / health events on each attempt.
-      const isSilentRetry = !!(error.config as any)?.__silentRetry;
+      const isSilentRetry = !!error.config?.__silentRetry;
 
       if (process.env.NODE_ENV === "development" && !isSilentRetry) {
         if (status === 401) {
@@ -478,36 +512,34 @@ function createApiInstance(
           ?.error;
         const isSessionExpired = errorCode === "SESSION_EXPIRED";
         const isSessionNotFound = errorCode === "SESSION_NOT_FOUND";
+        const isMissingAuthenticationToken =
+          errorMessage === "Missing authentication token";
         const isInvalidToken =
           errorCode === "AUTH_REQUIRED" ||
           errorMessage === "Invalid token" ||
           errorMessage === "Authentication required" ||
-          errorMessage === "Missing authentication token";
+          (isMissingAuthenticationToken && userWasAuthenticated);
 
-        const headers = error.config?.headers;
-        let hasAuthHeader = false;
-        if (headers) {
-          if (typeof headers.get === "function") {
-            hasAuthHeader = !!(
-              headers.get("Authorization") || headers.get("authorization")
-            );
-          } else {
-            hasAuthHeader = !!(
-              headers["Authorization"] || headers["authorization"]
-            );
+        if (isSessionExpired || isSessionNotFound || isInvalidToken) {
+          const requestStartedAt =
+            typeof error.config?.startTime === "number"
+              ? error.config.startTime
+              : 0;
+          const isStaleAuthInvalidation =
+            latestAuthSuccessAt > 0 &&
+            requestStartedAt > 0 &&
+            requestStartedAt < latestAuthSuccessAt;
+
+          if (isStaleAuthInvalidation) {
+            (
+              error as { __staleAuthInvalidation?: boolean }
+            ).__staleAuthInvalidation = true;
+            return Promise.reject(error);
           }
-        }
 
-        if (
-          (isSessionExpired || isSessionNotFound || isInvalidToken) &&
-          hasAuthHeader
-        ) {
           const wasAuthenticated = userWasAuthenticated;
 
-          localStorage.removeItem("jwt");
-
           if (isElectron()) {
-            electronSettingsCache.delete("jwt");
             const electronAPI = (
               window as unknown as {
                 electronAPI?: { clearSessionCookies?: () => Promise<void> };
@@ -526,14 +558,12 @@ function createApiInstance(
             toast.warning("Session expired. Please log in again.");
           }
 
-          if (wasAuthenticated) {
-            dbHealthMonitor.reportSessionExpired();
-          }
+          dbHealthMonitor.reportSessionExpired();
 
           userWasAuthenticated = false;
         }
       } else if (!isSilentRetry) {
-        const wasAuthenticated = !!localStorage.getItem("jwt");
+        const wasAuthenticated = userWasAuthenticated;
         dbHealthMonitor.reportDatabaseError(error, wasAuthenticated);
       }
 
@@ -575,10 +605,7 @@ export interface ServerConfig {
 interface AxiosRequestConfigExtended extends AxiosRequestConfig {
   startTime?: number;
   requestId?: string;
-}
-
-interface AxiosResponseExtended extends AxiosResponse {
-  config: AxiosRequestConfigExtended;
+  __silentRetry?: boolean;
 }
 
 interface AxiosErrorExtended extends AxiosError {
@@ -643,10 +670,7 @@ export function getConfiguredServerUrl(): string | null {
 interface AxiosRequestConfigExtended extends AxiosRequestConfig {
   startTime?: number;
   requestId?: string;
-}
-
-interface AxiosResponseExtended extends AxiosResponse {
-  config: AxiosRequestConfigExtended;
+  __silentRetry?: boolean;
 }
 
 interface AxiosErrorExtended extends AxiosError {
@@ -677,7 +701,7 @@ export async function testServerConnection(
 
 export async function checkElectronUpdate(): Promise<{
   success: boolean;
-  status?: "up_to_date" | "requires_update";
+  status?: "up_to_date" | "requires_update" | "beta";
   localVersion?: string;
   remoteVersion?: string;
   latest_release?: {
@@ -949,7 +973,7 @@ function handleApiError(error: unknown, operation: string): never {
         ? message
         : "Authentication required. Please log in again.";
 
-      throw new ApiError(errorMessage, 401, "AUTH_REQUIRED");
+      throw new ApiError(errorMessage, 401, code || "AUTH_REQUIRED");
     } else if (status === 403) {
       authLogger.warn(`Access denied: ${method} ${url}`, errorContext);
       const apiError = new ApiError(
@@ -1424,6 +1448,30 @@ export async function getTunnelStatuses(): Promise<
   }
 }
 
+export function subscribeTunnelStatuses(
+  onStatuses: (statuses: Record<string, TunnelStatus>) => void,
+  onError?: () => void,
+): () => void {
+  const baseURL = (tunnelApi.defaults.baseURL || "").replace(/\/$/, "");
+  const source = new EventSource(`${baseURL}/tunnel/status/stream`, {
+    withCredentials: true,
+  });
+
+  source.addEventListener("statuses", (event) => {
+    try {
+      onStatuses(JSON.parse(event.data) as Record<string, TunnelStatus>);
+    } catch {
+      onError?.();
+    }
+  });
+
+  source.onerror = () => {
+    onError?.();
+  };
+
+  return () => source.close();
+}
+
 export async function getTunnelStatusByName(
   tunnelName: string,
 ): Promise<TunnelStatus | undefined> {
@@ -1461,6 +1509,60 @@ export async function cancelTunnel(
     return response.data;
   } catch (error) {
     handleApiError(error, "cancel tunnel");
+  }
+}
+
+export async function getC2STunnelPresets(): Promise<C2STunnelPreset[]> {
+  try {
+    const response = await authApi.get("/c2s-tunnel-presets");
+    return response.data || [];
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return [];
+    }
+    handleApiError(error, "fetch client tunnel presets");
+  }
+}
+
+export async function createC2STunnelPreset(data: {
+  name: string;
+  config: TunnelConnection[];
+  platform?: string;
+  computerName?: string;
+}): Promise<C2STunnelPreset> {
+  try {
+    const response = await authApi.post("/c2s-tunnel-presets", data);
+    return response.data;
+  } catch (error) {
+    handleApiError(error, "create client tunnel preset");
+  }
+}
+
+export async function updateC2STunnelPreset(
+  id: number,
+  data: Partial<{
+    name: string;
+    config: TunnelConnection[];
+    platform: string;
+    computerName: string;
+  }>,
+): Promise<C2STunnelPreset> {
+  try {
+    const response = await authApi.put(`/c2s-tunnel-presets/${id}`, data);
+    return response.data;
+  } catch (error) {
+    handleApiError(error, "update client tunnel preset");
+  }
+}
+
+export async function deleteC2STunnelPreset(
+  id: number,
+): Promise<Record<string, unknown>> {
+  try {
+    const response = await authApi.delete(`/c2s-tunnel-presets/${id}`);
+    return response.data;
+  } catch (error) {
+    handleApiError(error, "delete client tunnel preset");
   }
 }
 
@@ -1603,7 +1705,7 @@ export async function connectSSH(
     socks5Username?: string;
     socks5Password?: string;
     socks5ProxyChain?: unknown;
-    jumpHosts?: any[];
+    jumpHosts?: Array<{ hostId: number }>;
   },
 ): Promise<Record<string, unknown>> {
   try {
@@ -1612,29 +1714,38 @@ export async function connectSSH(
       ...config,
     });
     return response.data;
-  } catch (error: any) {
-    if (error?.response?.data?.connectionLogs) {
+  } catch (error: unknown) {
+    if (
+      axios.isAxiosError<ConnectErrorResponse>(error) &&
+      error.response?.data?.connectionLogs
+    ) {
+      const data = error.response.data;
       const errorWithLogs = new Error(
-        error?.response?.data?.error ||
-          error?.response?.data?.message ||
-          error.message,
+        data.error || data.message || error.message,
       );
-      (errorWithLogs as any).connectionLogs =
-        error.response.data.connectionLogs;
-      if (error.response.data.requires_totp) {
-        (errorWithLogs as any).requires_totp = true;
-        (errorWithLogs as any).sessionId = error.response.data.sessionId;
-        (errorWithLogs as any).prompt = error.response.data.prompt;
+      Object.assign(errorWithLogs, {
+        connectionLogs: data.connectionLogs,
+      });
+      if (data.requires_totp) {
+        Object.assign(errorWithLogs, {
+          requires_totp: true,
+          sessionId: data.sessionId,
+          prompt: data.prompt,
+        });
       }
-      if (error.response.data.requires_warpgate) {
-        (errorWithLogs as any).requires_warpgate = true;
-        (errorWithLogs as any).sessionId = error.response.data.sessionId;
-        (errorWithLogs as any).url = error.response.data.url;
-        (errorWithLogs as any).securityKey = error.response.data.securityKey;
+      if (data.requires_warpgate) {
+        Object.assign(errorWithLogs, {
+          requires_warpgate: true,
+          sessionId: data.sessionId,
+          url: data.url,
+          securityKey: data.securityKey,
+        });
       }
-      if (error.response.data.status === "auth_required") {
-        (errorWithLogs as any).status = "auth_required";
-        (errorWithLogs as any).reason = error.response.data.reason;
+      if (data.status === "auth_required") {
+        Object.assign(errorWithLogs, {
+          status: "auth_required",
+          reason: data.reason,
+        });
       }
       throw errorWithLogs;
     }
@@ -2493,18 +2604,23 @@ export async function startMetricsPolling(hostId: number): Promise<{
   sessionId?: string;
   prompt?: string;
   viewerSessionId?: string;
-  connectionLogs?: any[];
+  connectionLogs?: ApiConnectionLog[];
 }> {
   try {
     const response = await statsApi.post(`/metrics/start/${hostId}`);
     return response.data;
-  } catch (error: any) {
-    if (error?.response?.data?.connectionLogs) {
+  } catch (error: unknown) {
+    if (
+      axios.isAxiosError<ConnectErrorResponse>(error) &&
+      error.response?.data?.connectionLogs
+    ) {
+      const data = error.response.data;
       const errorWithLogs = new Error(
-        error?.response?.data?.error || error.message,
+        data.error || data.message || error.message,
       );
-      (errorWithLogs as any).connectionLogs =
-        error.response.data.connectionLogs;
+      Object.assign(errorWithLogs, {
+        connectionLogs: data.connectionLogs,
+      });
       throw errorWithLogs;
     }
     handleApiError(error, "start metrics polling");
@@ -2733,23 +2849,14 @@ export async function loginUser(
       rememberMe,
     });
 
-    const hasToken = response.data.token;
-
-    if (isElectron() && hasToken) {
-      localStorage.setItem("jwt", response.data.token);
-    }
-
     const isInIframe =
       typeof window !== "undefined" && window.self !== window.top;
 
-    if (isInIframe && isElectron() && hasToken) {
-      localStorage.setItem("jwt", response.data.token);
-
+    if (isInIframe && isElectron() && response.data.success) {
       try {
         window.parent.postMessage(
           {
             type: "AUTH_SUCCESS",
-            token: response.data.token,
             source: "login_api",
             platform: "desktop",
             timestamp: Date.now(),
@@ -2761,8 +2868,11 @@ export async function loginUser(
       }
     }
 
+    if (response.data.success && !response.data.requires_totp) {
+      markUserAuthenticated();
+    }
+
     return {
-      token: response.data.token || "cookie-based",
       success: response.data.success,
       is_admin: response.data.is_admin,
       username: response.data.username,
@@ -2788,8 +2898,6 @@ export async function logoutUser(): Promise<{
     clearTermixSessionStorage();
 
     if (isElectron()) {
-      localStorage.removeItem("jwt");
-      electronSettingsCache.delete("jwt");
       const electronAPI = (
         window as unknown as {
           electronAPI?: { clearSessionCookies?: () => Promise<void> };
@@ -2799,8 +2907,8 @@ export async function logoutUser(): Promise<{
     } else {
       const isSecure = window.location.protocol === "https:";
       const cookieString = isSecure
-        ? "jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Secure; SameSite=Strict"
-        : "jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict";
+        ? "jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Secure; SameSite=Lax"
+        : "jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
       document.cookie = cookieString;
     }
 
@@ -2809,8 +2917,6 @@ export async function logoutUser(): Promise<{
     clearTermixSessionStorage();
 
     if (isElectron()) {
-      localStorage.removeItem("jwt");
-      electronSettingsCache.delete("jwt");
       const electronAPI = (
         window as unknown as {
           electronAPI?: { clearSessionCookies?: () => Promise<void> };
@@ -2820,8 +2926,8 @@ export async function logoutUser(): Promise<{
     } else {
       const isSecure = window.location.protocol === "https:";
       const cookieString = isSecure
-        ? "jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Secure; SameSite=Strict"
-        : "jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict";
+        ? "jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Secure; SameSite=Lax"
+        : "jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
       document.cookie = cookieString;
     }
     handleApiError(error, "logout user");
@@ -2831,6 +2937,7 @@ export async function logoutUser(): Promise<{
 export async function getUserInfo(): Promise<UserInfo> {
   try {
     const response = await authApi.get("/users/me");
+    markUserAuthenticated();
     return response.data;
   } catch (error) {
     handleApiError(error, "fetch user info");
@@ -2997,8 +3104,8 @@ export async function getSessions(): Promise<{
     createdAt: string;
     expiresAt: string;
     lastActiveAt: string;
-    jwtToken: string;
     isRevoked?: boolean;
+    isCurrentSession?: boolean;
   }[];
 }> {
   try {
@@ -3031,6 +3138,59 @@ export async function revokeAllUserSessions(
     return response.data;
   } catch (error) {
     handleApiError(error, "revoke all user sessions");
+  }
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  userId: string;
+  username: string | null;
+  tokenPrefix: string;
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  isActive: boolean;
+}
+
+export interface CreatedApiKey extends ApiKey {
+  token: string;
+}
+
+export async function createApiKey(
+  name: string,
+  userId: string,
+  expiresAt?: string,
+): Promise<CreatedApiKey> {
+  try {
+    const response = await authApi.post("/users/api-keys", {
+      name,
+      userId,
+      expiresAt: expiresAt ?? null,
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error, "create API key");
+  }
+}
+
+export async function getApiKeys(): Promise<{ apiKeys: ApiKey[] }> {
+  try {
+    const response = await authApi.get("/users/api-keys");
+    return response.data;
+  } catch (error) {
+    handleApiError(error, "fetch API keys");
+  }
+}
+
+export async function deleteApiKey(
+  keyId: string,
+): Promise<{ success: boolean }> {
+  try {
+    const response = await authApi.delete(`/users/api-keys/${keyId}`);
+    return response.data;
+  } catch (error) {
+    handleApiError(error, "delete API key");
   }
 }
 
@@ -3207,23 +3367,14 @@ export async function verifyTOTPLogin(
       rememberMe,
     });
 
-    const hasToken = response.data.token;
-
-    if (isElectron() && hasToken) {
-      localStorage.setItem("jwt", response.data.token);
-    }
-
     const isInIframe =
       typeof window !== "undefined" && window.self !== window.top;
 
-    if (isInIframe && isElectron() && hasToken) {
-      localStorage.setItem("jwt", response.data.token);
-
+    if (isInIframe && isElectron() && response.data.success) {
       try {
         window.parent.postMessage(
           {
             type: "AUTH_SUCCESS",
-            token: response.data.token,
             source: "totp_verify",
             platform: "desktop",
             timestamp: Date.now(),
@@ -3233,6 +3384,10 @@ export async function verifyTOTPLogin(
       } catch (e) {
         console.error("[main-axios] Error posting message to parent:", e);
       }
+    }
+
+    if (response.data.success) {
+      markUserAuthenticated();
     }
 
     return response.data;
@@ -3266,6 +3421,7 @@ export async function getUserAlerts(): Promise<{
     return response.data;
   } catch (error) {
     handleApiError(error, "fetch user alerts");
+    throw error;
   }
 }
 
@@ -3277,6 +3433,7 @@ export async function dismissAlert(
     return response.data;
   } catch (error) {
     handleApiError(error, "dismiss alert");
+    throw error;
   }
 }
 
@@ -3757,9 +3914,30 @@ export async function executeSnippet(
 // MISCELLANEOUS API CALLS
 // ============================================================================
 
+export interface NetworkTopologyNode {
+  data: {
+    id: string;
+    label?: string;
+    ip?: string;
+    status?: string;
+    tags?: string[];
+    parent?: string;
+    color?: string;
+  };
+  position?: { x: number; y: number };
+}
+
+export interface NetworkTopologyEdge {
+  data: {
+    id?: string;
+    source: string;
+    target: string;
+  };
+}
+
 export interface NetworkTopologyData {
-  nodes: any[];
-  edges: any[];
+  nodes: NetworkTopologyNode[];
+  edges: NetworkTopologyEdge[];
 }
 
 export async function getNetworkTopology(): Promise<NetworkTopologyData | null> {
@@ -4485,7 +4663,7 @@ export async function connectDockerSession(
   isPassword?: boolean;
   status?: string;
   reason?: string;
-  connectionLogs?: any[];
+  connectionLogs?: ApiConnectionLog[];
   requires_warpgate?: boolean;
   url?: string;
   securityKey?: string;
@@ -4497,24 +4675,36 @@ export async function connectDockerSession(
       ...config,
     });
     return response.data;
-  } catch (error: any) {
-    if (error.response?.data?.status === "auth_required") {
+  } catch (error: unknown) {
+    if (
+      axios.isAxiosError<ConnectErrorResponse>(error) &&
+      error.response?.data?.status === "auth_required"
+    ) {
       return error.response.data;
     }
-    if (error.response?.data?.requires_totp) {
+    if (
+      axios.isAxiosError<ConnectErrorResponse>(error) &&
+      error.response?.data?.requires_totp
+    ) {
       return error.response.data;
     }
-    if (error.response?.data?.requires_warpgate) {
+    if (
+      axios.isAxiosError<ConnectErrorResponse>(error) &&
+      error.response?.data?.requires_warpgate
+    ) {
       return error.response.data;
     }
-    if (error?.response?.data?.connectionLogs) {
+    if (
+      axios.isAxiosError<ConnectErrorResponse>(error) &&
+      error.response?.data?.connectionLogs
+    ) {
+      const data = error.response.data;
       const errorWithLogs = new Error(
-        error?.response?.data?.error ||
-          error?.response?.data?.message ||
-          error.message,
+        data.error || data.message || error.message,
       );
-      (errorWithLogs as any).connectionLogs =
-        error.response.data.connectionLogs;
+      Object.assign(errorWithLogs, {
+        connectionLogs: data.connectionLogs,
+      });
       throw errorWithLogs;
     }
     throw handleApiError(error, "connect to Docker SSH session");

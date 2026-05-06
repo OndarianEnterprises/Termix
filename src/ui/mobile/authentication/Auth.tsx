@@ -22,32 +22,31 @@ import {
   completePasswordReset,
   getOIDCAuthorizeUrl,
   verifyTOTPLogin,
-  logoutUser,
-  isElectron,
-  getCookie,
 } from "@/ui/main-axios.ts";
 import { PasswordInput } from "@/components/ui/password-input.tsx";
 
+type ReactNativeWindow = Window & {
+  ReactNativeWebView?: {
+    postMessage: (message: string) => void;
+  };
+};
+
 function isReactNativeWebView(): boolean {
-  return typeof window !== "undefined" && !!(window as any).ReactNativeWebView;
+  return (
+    typeof window !== "undefined" &&
+    !!(window as ReactNativeWindow).ReactNativeWebView
+  );
 }
 
-function postJWTToWebView() {
+function postAuthSuccessToWebView() {
   if (!isReactNativeWebView()) {
     return;
   }
 
   try {
-    const jwt = getCookie("jwt") || localStorage.getItem("jwt");
-
-    if (!jwt) {
-      return;
-    }
-
-    (window as any).ReactNativeWebView.postMessage(
+    (window as ReactNativeWindow).ReactNativeWebView?.postMessage(
       JSON.stringify({
         type: "AUTH_SUCCESS",
-        token: jwt,
         source: "explicit",
         platform: "mobile",
         timestamp: Date.now(),
@@ -263,7 +262,7 @@ export function Auth({
       setUsername(meRes.username || null);
       setUserId(meRes.userId || null);
       setDbError(null);
-      postJWTToWebView();
+      postAuthSuccessToWebView();
 
       if (isReactNativeWebView()) {
         setMobileAuthSuccess(true);
@@ -458,16 +457,12 @@ export function Auth({
         throw new Error(t("errors.loginFailed"));
       }
 
-      if (isElectron() && res.token) {
-        localStorage.setItem("jwt", res.token);
-      }
-
       setIsAdmin(!!res.is_admin);
       setUsername(res.username || null);
       setUserId(res.userId || null);
       setDbError(null);
 
-      postJWTToWebView();
+      postAuthSuccessToWebView();
 
       if (isReactNativeWebView()) {
         setMobileAuthSuccess(true);
@@ -589,50 +584,43 @@ export function Auth({
       setOidcLoading(true);
       setError(null);
 
-      const urlToken = urlParams.get("token");
-      if (urlToken && (isElectron() || isReactNativeWebView())) {
-        localStorage.setItem("jwt", urlToken);
-      }
-
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      setTimeout(() => {
-        getUserInfo()
-          .then((meRes) => {
-            setIsAdmin(!!meRes.is_admin);
-            setUsername(meRes.username || null);
-            setUserId(meRes.userId || null);
-            setDbError(null);
-            postJWTToWebView();
+      if (isReactNativeWebView()) {
+        postAuthSuccessToWebView();
+        setMobileAuthSuccess(true);
+        setOidcLoading(false);
+        return;
+      }
 
-            if (isReactNativeWebView()) {
-              setMobileAuthSuccess(true);
-              setOidcLoading(false);
-              return;
-            }
+      getUserInfo()
+        .then((meRes) => {
+          setIsAdmin(!!meRes.is_admin);
+          setUsername(meRes.username || null);
+          setUserId(meRes.userId || null);
+          setDbError(null);
 
-            setLoggedIn(true);
-            onAuthSuccess({
-              isAdmin: !!meRes.is_admin,
-              username: meRes.username || null,
-              userId: meRes.userId || null,
-            });
-
-            setInternalLoggedIn(true);
-          })
-          .catch((err) => {
-            console.error("Failed to get user info after OIDC callback:", err);
-            setError(t("errors.failedUserInfo"));
-            setInternalLoggedIn(false);
-            setLoggedIn(false);
-            setIsAdmin(false);
-            setUsername(null);
-            setUserId(null);
-          })
-          .finally(() => {
-            setOidcLoading(false);
+          setLoggedIn(true);
+          onAuthSuccess({
+            isAdmin: !!meRes.is_admin,
+            username: meRes.username || null,
+            userId: meRes.userId || null,
           });
-      }, 200);
+
+          setInternalLoggedIn(true);
+        })
+        .catch((err) => {
+          console.error("Failed to get user info after OIDC callback:", err);
+          setError(t("errors.failedUserInfo"));
+          setInternalLoggedIn(false);
+          setLoggedIn(false);
+          setIsAdmin(false);
+          setUsername(null);
+          setUserId(null);
+        })
+        .finally(() => {
+          setOidcLoading(false);
+        });
     }
   }, []);
 

@@ -1,17 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { PasswordInput } from "@/components/ui/password-input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs.tsx";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/ui/desktop/user/LanguageSwitcher.tsx";
 import { toast } from "sonner";
@@ -34,15 +28,19 @@ import {
   saveServerConfig,
   isElectron,
   getEmbeddedServerStatus,
-  isEmbeddedMode,
 } from "../../main-axios.ts";
 import { ElectronServerConfig as ServerConfigComponent } from "@/ui/desktop/authentication/ElectronServerConfig.tsx";
 import { ElectronLoginForm } from "@/ui/desktop/authentication/ElectronLoginForm.tsx";
 
-function getCookie(name: string): string | undefined {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(";").shift();
+function isMissingServerConfigError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    (error as Error & { code?: string }).code === "NO_SERVER_CONFIGURED" ||
+    error.message.includes("no-server-configured")
+  );
 }
 
 interface ExtendedWindow extends Window {
@@ -57,7 +55,6 @@ interface AuthProps extends React.ComponentProps<"div"> {
   loggedIn: boolean;
   authLoading: boolean;
   setDbError: (error: string | null) => void;
-  dbError?: string | null;
   onAuthSuccess: (authData: {
     isAdmin: boolean;
     username: string | null;
@@ -74,7 +71,6 @@ export function Auth({
   loggedIn,
   authLoading,
   setDbError,
-  dbError: _dbError,
   onAuthSuccess,
   ...props
 }: AuthProps) {
@@ -99,7 +95,7 @@ export function Auth({
       if (window.self !== window.top) {
         return true;
       }
-    } catch (_e) {
+    } catch {
       return true;
     }
     return false;
@@ -152,49 +148,48 @@ export function Auth({
   const [dbConnectionFailed, setDbConnectionFailed] = useState(false);
   const [dbHealthChecking, setDbHealthChecking] = useState(false);
 
-  const handleElectronAuthSuccess = useCallback(async () => {
-    try {
-      let retries = 5;
-      let meRes = null;
-      while (retries-- > 0) {
-        try {
-          meRes = await getUserInfo();
-          break;
-        } catch (err: any) {
-          const isNoServer =
-            err?.code === "NO_SERVER_CONFIGURED" ||
-            err?.message?.includes("no-server-configured");
-          if (isNoServer && retries > 0) {
-            await new Promise((r) => setTimeout(r, 500));
-          } else {
-            throw err;
-          }
+  const handleElectronAuthSuccess = useCallback(
+    async (previousJwt: string | null) => {
+      try {
+        const cookieReady = await window.electronAPI?.waitForSessionCookie?.(
+          "jwt",
+          currentServerUrl,
+          previousJwt,
+          5000,
+        );
+        if (cookieReady && !cookieReady.success) {
+          throw new Error(
+            cookieReady.error || "Authentication cookie not ready",
+          );
         }
+        const meRes = await getUserInfo();
+        if (!meRes) throw new Error("Failed to get user info");
+        setInternalLoggedIn(true);
+        setLoggedIn(true);
+        setIsAdmin(!!meRes.is_admin);
+        setUsername(meRes.username || null);
+        setUserId(meRes.userId || null);
+        onAuthSuccess({
+          isAdmin: !!meRes.is_admin,
+          username: meRes.username || null,
+          userId: meRes.userId || null,
+        });
+        toast.success(t("messages.loginSuccess"));
+      } catch {
+        toast.error(t("errors.failedUserInfo"));
       }
-      if (!meRes) throw new Error("Failed to get user info");
-      setInternalLoggedIn(true);
-      setLoggedIn(true);
-      setIsAdmin(!!meRes.is_admin);
-      setUsername(meRes.username || null);
-      setUserId(meRes.userId || null);
-      onAuthSuccess({
-        isAdmin: !!meRes.is_admin,
-        username: meRes.username || null,
-        userId: meRes.userId || null,
-      });
-      toast.success(t("messages.loginSuccess"));
-    } catch (_err) {
-      toast.error(t("errors.failedUserInfo"));
-    }
-  }, [
-    onAuthSuccess,
-    setLoggedIn,
-    setIsAdmin,
-    setUsername,
-    setUserId,
-    t,
-    setInternalLoggedIn,
-  ]);
+    },
+    [
+      onAuthSuccess,
+      setLoggedIn,
+      setIsAdmin,
+      setUsername,
+      setUserId,
+      t,
+      setInternalLoggedIn,
+      currentServerUrl,
+    ],
+  );
 
   useEffect(() => {
     setInternalLoggedIn(loggedIn);
@@ -332,18 +327,16 @@ export function Auth({
         throw new Error(t("errors.loginFailed"));
       }
 
-      if (isInElectronWebView() && res.token) {
+      if (isInElectronWebView()) {
         try {
-          localStorage.setItem("jwt", res.token);
           window.parent.postMessage(
             {
               type: "AUTH_SUCCESS",
-              token: res.token,
               source: "auth_component",
               platform: "desktop",
               timestamp: Date.now(),
             },
-            "*",
+            window.location.origin,
           );
           setWebviewAuthSuccess(true);
           return;
@@ -537,22 +530,16 @@ export function Auth({
         throw new Error(t("errors.loginFailed"));
       }
 
-      if (isElectron() && res.token) {
-        localStorage.setItem("jwt", res.token);
-      }
-
-      if (isInElectronWebView() && res.token) {
+      if (isInElectronWebView()) {
         try {
-          localStorage.setItem("jwt", res.token);
           window.parent.postMessage(
             {
               type: "AUTH_SUCCESS",
-              token: res.token,
               source: "totp_auth_component",
               platform: "desktop",
               timestamp: Date.now(),
             },
-            "*",
+            window.location.origin,
           );
           setWebviewAuthSuccess(true);
           setTotpLoading(false);
@@ -676,43 +663,32 @@ export function Auth({
     if (success) {
       setOidcLoading(true);
 
-      const urlToken = urlParams.get("token");
-      if (urlToken && (isElectron() || isInElectronWebView())) {
-        localStorage.setItem("jwt", urlToken);
+      if (isInElectronWebView()) {
+        try {
+          window.parent.postMessage(
+            {
+              type: "AUTH_SUCCESS",
+              source: "oidc_callback",
+              platform: "desktop",
+              timestamp: Date.now(),
+            },
+            window.location.origin,
+          );
+          setWebviewAuthSuccess(true);
+          setOidcLoading(false);
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
+          return;
+        } catch (e) {
+          console.error("Error posting auth success message:", e);
+        }
       }
 
       getUserInfo()
         .then((meRes) => {
-          if (isInElectronWebView()) {
-            const token = getCookie("jwt") || localStorage.getItem("jwt");
-            if (token) {
-              try {
-                window.parent.postMessage(
-                  {
-                    type: "AUTH_SUCCESS",
-                    token: token,
-                    source: "oidc_callback",
-                    platform: "desktop",
-                    timestamp: Date.now(),
-                  },
-                  "*",
-                );
-                setWebviewAuthSuccess(true);
-                setOidcLoading(false);
-                return;
-              } catch (e) {
-                console.error("Error posting auth success message:", e);
-              }
-            }
-          }
-
-          if (isElectron()) {
-            const token = getCookie("jwt");
-            if (token) {
-              localStorage.setItem("jwt", token);
-            }
-          }
-
           setInternalLoggedIn(true);
           setLoggedIn(true);
           setIsAdmin(!!meRes.is_admin);

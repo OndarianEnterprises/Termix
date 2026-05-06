@@ -14,12 +14,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import {
-  isElectron,
-  isEmbeddedMode,
-  getCookie,
-  getSnippets,
-} from "@/ui/main-axios.ts";
+import { isElectron, isEmbeddedMode, getSnippets } from "@/ui/main-axios.ts";
 import { getBasePath } from "@/lib/base-path";
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -30,6 +25,7 @@ import {
 import type { TerminalConfig } from "@/types";
 import { TOTPDialog } from "@/ui/desktop/navigation/dialogs/TOTPDialog.tsx";
 import { SSHAuthDialog } from "@/ui/desktop/navigation/dialogs/SSHAuthDialog.tsx";
+import { PassphraseDialog } from "@/ui/desktop/navigation/dialogs/PassphraseDialog.tsx";
 import { WarpgateDialog } from "@/ui/desktop/navigation/dialogs/WarpgateDialog.tsx";
 import {
   ConnectionLogProvider,
@@ -99,7 +95,7 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
     const resizeTimeout = useRef<NodeJS.Timeout | null>(null);
     const wasDisconnectedBySSH = useRef(false);
     const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const [visible, setVisible] = useState(false);
+    const [, setVisible] = useState(false);
     const [isReady, setIsReady] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -119,6 +115,7 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
     const [authDialogReason, setAuthDialogReason] = useState<
       "no_keyboard" | "auth_failed" | "timeout"
     >("no_keyboard");
+    const [showPassphraseDialog, setShowPassphraseDialog] = useState(false);
     const [warpgateAuthRequired, setWarpgateAuthRequired] = useState(false);
     const [warpgateAuthUrl, setWarpgateAuthUrl] = useState<string>("");
     const [warpgateSecurityKey, setWarpgateSecurityKey] = useState<string>("");
@@ -158,12 +155,9 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
 
     useEffect(() => {
       const checkAuth = () => {
-        const jwtToken = getCookie("jwt");
-        const isAuth = !!(jwtToken && jwtToken.trim() !== "");
-
         setIsAuthenticated((prev) => {
-          if (prev !== isAuth) {
-            return isAuth;
+          if (!prev) {
+            return true;
           }
           return prev;
         });
@@ -333,6 +327,32 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
       webSocketRef.current?.close();
     }
 
+    function handlePassphraseSubmit(passphrase: string) {
+      if (webSocketRef.current && terminal) {
+        webSocketRef.current.send(
+          JSON.stringify({
+            type: "reconnect_with_credentials",
+            data: {
+              cols: terminal.cols,
+              rows: terminal.rows,
+              keyPassword: passphrase,
+              hostConfig: {
+                ...hostConfig,
+                keyPassword: passphrase,
+              },
+            },
+          }),
+        );
+        setShowPassphraseDialog(false);
+        setIsConnecting(true);
+      }
+    }
+
+    function handlePassphraseCancel() {
+      setShowPassphraseDialog(false);
+      webSocketRef.current?.close();
+    }
+
     useImperativeHandle(
       ref,
       () => ({
@@ -452,21 +472,6 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
           return;
         }
 
-        const jwtToken = getCookie("jwt");
-        if (!jwtToken || jwtToken.trim() === "") {
-          console.warn("Reconnection cancelled - no authentication token");
-          isReconnectingRef.current = false;
-          updateConnectionError(t("terminal.authenticationRequired"));
-          setIsConnecting(false);
-          shouldNotReconnectRef.current = true;
-          addLog({
-            type: "error",
-            stage: "auth",
-            message: t("terminal.authenticationRequired"),
-          });
-          return;
-        }
-
         if (terminal && hostConfig) {
           terminal.clear();
           const cols = terminal.cols;
@@ -496,17 +501,6 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
         (window.location.port === "3000" ||
           window.location.port === "5173" ||
           window.location.port === "");
-
-      const jwtToken = getCookie("jwt");
-
-      if (!jwtToken || jwtToken.trim() === "") {
-        console.error("No JWT token available for WebSocket connection");
-        setIsConnected(false);
-        setIsConnecting(false);
-        updateConnectionError("Authentication required");
-        isConnectingRef.current = false;
-        return;
-      }
 
       const baseWsUrl = isDev
         ? `${window.location.protocol === "https:" ? "wss" : "ws"}://localhost:30002`
@@ -543,9 +537,7 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
         connectionTimeoutRef.current = null;
       }
 
-      const wsUrl = `${baseWsUrl}?token=${encodeURIComponent(jwtToken)}`;
-
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(baseWsUrl);
       webSocketRef.current = ws;
       wasDisconnectedBySSH.current = false;
       updateConnectionError(null);
@@ -737,6 +729,13 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
                 );
               }
             }, 100);
+          } else if (msg.type === "session_ended") {
+            wasDisconnectedBySSH.current = true;
+            shouldNotReconnectRef.current = true;
+            isConnectingRef.current = false;
+            setIsConnected(false);
+            setIsConnecting(false);
+            updateConnectionError(t("terminal.sessionEnded"));
           } else if (msg.type === "disconnected") {
             wasDisconnectedBySSH.current = true;
             isConnectingRef.current = false;
@@ -805,6 +804,13 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
           } else if (msg.type === "auth_method_not_available") {
             setAuthDialogReason("no_keyboard");
             setShowAuthDialog(true);
+            setIsConnecting(false);
+            if (connectionTimeoutRef.current) {
+              clearTimeout(connectionTimeoutRef.current);
+              connectionTimeoutRef.current = null;
+            }
+          } else if (msg.type === "passphrase_required") {
+            setShowPassphraseDialog(true);
             setIsConnecting(false);
             if (connectionTimeoutRef.current) {
               clearTimeout(connectionTimeoutRef.current);
@@ -912,8 +918,6 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
           updateConnectionError("Authentication failed - please re-login");
           setIsConnecting(false);
           shouldNotReconnectRef.current = true;
-
-          localStorage.removeItem("jwt");
 
           return;
         }
@@ -1078,16 +1082,6 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
           }
           hardRefresh();
 
-          const jwtToken = getCookie("jwt");
-          if (!jwtToken || jwtToken.trim() === "") {
-            setIsConnected(false);
-            setIsConnecting(false);
-            updateConnectionError("Authentication required");
-            setVisible(true);
-            setIsReady(true);
-            return;
-          }
-
           const cols = terminal.cols;
           const rows = terminal.rows;
 
@@ -1197,6 +1191,19 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
           reason={authDialogReason}
           onSubmit={handleAuthDialogSubmit}
           onCancel={handleAuthDialogCancel}
+          hostInfo={{
+            ip: hostConfig.ip,
+            port: hostConfig.port,
+            username: hostConfig.username,
+            name: hostConfig.name,
+          }}
+          backgroundColor={backgroundColor}
+        />
+
+        <PassphraseDialog
+          isOpen={showPassphraseDialog}
+          onSubmit={handlePassphraseSubmit}
+          onCancel={handlePassphraseCancel}
           hostInfo={{
             ip: hostConfig.ip,
             port: hostConfig.port,

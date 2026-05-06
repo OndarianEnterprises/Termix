@@ -2,18 +2,21 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { VersionAlert } from "@/components/ui/version-alert.tsx";
 import { useTranslation } from "react-i18next";
-import { checkElectronUpdate, isElectron } from "@/ui/main-axios.ts";
+import { isElectron } from "@/lib/electron";
+import { checkElectronUpdate } from "@/ui/main-axios.ts";
 import { useTheme } from "@/components/theme-provider";
 
 interface VersionCheckModalProps {
   onContinue: () => void;
-  isAuthenticated?: boolean;
 }
 
-export function ElectronVersionCheck({
-  onContinue,
-  isAuthenticated = false,
-}: VersionCheckModalProps) {
+type ElectronWindow = Window & {
+  electronAPI?: {
+    getAppVersion?: () => Promise<string | undefined>;
+  };
+};
+
+export function ElectronVersionCheck({ onContinue }: VersionCheckModalProps) {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const [versionInfo, setVersionInfo] = useState<Record<
@@ -32,6 +35,10 @@ export function ElectronVersionCheck({
     (theme === "system" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
   const lineColor = isDarkMode ? "#151517" : "#f9f9f9";
+  const versionModalTitle =
+    versionInfo?.status === "beta"
+      ? t("versionCheck.betaVersion")
+      : t("versionCheck.updateRequired");
 
   useEffect(() => {
     const updateCheckDisabled =
@@ -53,7 +60,9 @@ export function ElectronVersionCheck({
       const updateInfo = await checkElectronUpdate();
       setVersionInfo(updateInfo);
 
-      const currentVersion = await (window as any).electronAPI?.getAppVersion();
+      const currentVersion = await (
+        window as ElectronWindow
+      ).electronAPI?.getAppVersion?.();
       const dismissedVersion = localStorage.getItem(
         "electron-version-check-dismissed",
       );
@@ -88,7 +97,9 @@ export function ElectronVersionCheck({
   };
 
   const handleContinue = async () => {
-    const currentVersion = await (window as any).electronAPI?.getAppVersion();
+    const currentVersion = await (
+      window as ElectronWindow
+    ).electronAPI?.getAppVersion?.();
     if (currentVersion) {
       localStorage.setItem("electron-version-check-dismissed", currentVersion);
     }
@@ -183,9 +194,7 @@ export function ElectronVersionCheck({
     >
       <div className="w-[420px] max-w-full p-8 flex flex-col backdrop-blur-sm bg-card/50 rounded-2xl shadow-xl border-2 border-edge overflow-y-auto thin-scrollbar my-2 animate-in fade-in zoom-in-95 duration-300">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold">
-            {t("versionCheck.updateRequired")}
-          </h2>
+          <h2 className="text-lg font-semibold">{versionModalTitle}</h2>
         </div>
 
         <div className="mb-4">

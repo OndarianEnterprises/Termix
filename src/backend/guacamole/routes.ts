@@ -6,7 +6,7 @@ import { PermissionManager } from "../utils/permission-manager.js";
 import { SimpleDBOps } from "../utils/simple-db-ops.js";
 import { getDb } from "../database/db/index.js";
 import { hosts } from "../database/db/schema.js";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { AuthenticatedRequest } from "../../types/index.js";
 
 const router = express.Router();
@@ -31,7 +31,6 @@ router.use(authManager.createAuthMiddleware());
  */
 router.post("/token", async (req, res) => {
   try {
-    const userId = (req as AuthenticatedRequest).userId;
     const { type, hostname, port, username, password, domain, ...options } =
       req.body;
 
@@ -63,10 +62,15 @@ router.post("/token", async (req, res) => {
         );
         break;
       case "vnc":
-        token = tokenService.createVncToken(hostname, password, {
-          port: port || 5900,
-          ...options,
-        });
+        token = tokenService.createVncToken(
+          hostname,
+          username || undefined,
+          password,
+          {
+            port: port || 5900,
+            ...options,
+          },
+        );
         break;
       case "telnet":
         token = tokenService.createTelnetToken(hostname, username, password, {
@@ -129,7 +133,7 @@ router.post(
   async (req: express.Request, res: express.Response) => {
     try {
       const userId = (req as AuthenticatedRequest).userId!;
-      const hostId = parseInt(req.params.hostId, 10);
+      const hostId = Number.parseInt(String(req.params.hostId), 10);
 
       if (!hostId || isNaN(hostId)) {
         return res.status(400).json({ error: "Invalid host ID" });
@@ -206,10 +210,15 @@ router.post(
           });
           break;
         case "vnc":
-          token = tokenService.createVncToken(hostname, password, {
-            port: port || 5900,
-            ...guacConfig,
-          });
+          token = tokenService.createVncToken(
+            hostname,
+            username || undefined,
+            password,
+            {
+              port: port || 5900,
+              ...guacConfig,
+            },
+          );
           break;
         case "telnet":
           token = tokenService.createTelnetToken(hostname, username, password, {

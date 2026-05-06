@@ -8,7 +8,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { isElectron, logoutUser } from "@/ui/main-axios.ts";
+import { logoutUser } from "@/ui/main-axios.ts";
 
 import {
   Sidebar,
@@ -50,10 +50,6 @@ async function handleLogout() {
   try {
     await logoutUser();
 
-    if (isElectron()) {
-      localStorage.removeItem("jwt");
-    }
-
     window.location.reload();
   } catch (error) {
     console.error("Logout failed:", error);
@@ -80,13 +76,11 @@ export function LeftSidebar({
     addTab,
     setCurrentTab,
     allSplitScreenTab,
-    updateHostConfig,
   } = useTabs() as {
     tabs: Array<{ id: number; type: string; [key: string]: unknown }>;
     addTab: (tab: { type: string; [key: string]: unknown }) => number;
     setCurrentTab: (id: number) => void;
     allSplitScreenTab: number[];
-    updateHostConfig: (id: number, config: unknown) => void;
   };
   const isSplitScreenActive =
     Array.isArray(allSplitScreenTab) && allSplitScreenTab.length > 0;

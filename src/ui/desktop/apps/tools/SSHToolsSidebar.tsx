@@ -38,19 +38,16 @@ import {
   Trash2,
   Copy,
   X,
-  RotateCcw,
   Search,
   Loader2,
   Terminal,
   LayoutGrid,
-  MonitorCheck,
   Folder,
   ChevronDown,
   ChevronRight,
   GripVertical,
   FolderPlus,
   Settings,
-  MoreVertical,
   Server,
   Cloud,
   Database,
@@ -61,7 +58,6 @@ import {
   HardDrive,
   Globe,
   Share2,
-  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -184,7 +180,7 @@ export function SSHToolsSidebar({
   const [isRecording, setIsRecording] = useState(false);
   const [selectedTabIds, setSelectedTabIds] = useState<number[]>([]);
   const [rightClickCopyPaste, setRightClickCopyPaste] = useState<boolean>(
-    () => getCookie("rightClickCopyPaste") === "true",
+    () => getCookie("rightClickCopyPaste") !== "false",
   );
 
   const [snippets, setSnippets] = useState<Snippet[]>([]);
@@ -229,7 +225,6 @@ export function SSHToolsSidebar({
     [],
   );
   const [draggedSnippet, setDraggedSnippet] = useState<Snippet | null>(null);
-  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => {
     const shouldCollapse =
       localStorage.getItem("defaultSnippetFoldersCollapsed") !== "false";
@@ -265,7 +260,7 @@ export function SSHToolsSidebar({
   const [splitAssignments, setSplitAssignments] = useState<Map<number, number>>(
     new Map(),
   );
-  const [previewKey, setPreviewKey] = useState(0);
+  const [, setPreviewKey] = useState(0);
   const [draggedTabId, setDraggedTabId] = useState<number | null>(null);
   const [dragOverCellIndex, setDragOverCellIndex] = useState<number | null>(
     null,
@@ -940,17 +935,9 @@ export function SSHToolsSidebar({
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e: React.DragEvent, targetSnippet: Snippet) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDragEnterFolder = (folderName: string) => {
-    setDragOverFolder(folderName);
-  };
-
-  const handleDragLeaveFolder = () => {
-    setDragOverFolder(null);
   };
 
   const handleDrop = async (e: React.DragEvent, targetSnippet: Snippet) => {
@@ -958,7 +945,6 @@ export function SSHToolsSidebar({
 
     if (!draggedSnippet || draggedSnippet.id === targetSnippet.id) {
       setDraggedSnippet(null);
-      setDragOverFolder(null);
       return;
     }
 
@@ -968,7 +954,6 @@ export function SSHToolsSidebar({
     if (sourceFolder !== targetFolder) {
       toast.error(t("snippets.reorderSameFolder"));
       setDraggedSnippet(null);
-      setDragOverFolder(null);
       return;
     }
 
@@ -985,7 +970,6 @@ export function SSHToolsSidebar({
 
     if (draggedIndex === -1 || targetIndex === -1) {
       setDraggedSnippet(null);
-      setDragOverFolder(null);
       return;
     }
 
@@ -1008,12 +992,10 @@ export function SSHToolsSidebar({
     }
 
     setDraggedSnippet(null);
-    setDragOverFolder(null);
   };
 
   const handleDragEnd = () => {
     setDraggedSnippet(null);
-    setDragOverFolder(null);
   };
 
   const handleCreateFolder = () => {
@@ -1214,10 +1196,6 @@ export function SSHToolsSidebar({
     toast.success(t("splitScreen.cleared"));
   };
 
-  const handleResetToSingle = () => {
-    handleClearSplit();
-  };
-
   const handleCommandSelect = (command: string) => {
     if (activeTerminal?.terminalRef?.current?.sendInput) {
       activeTerminal.terminalRef.current.sendInput(command);
@@ -1256,14 +1234,6 @@ export function SSHToolsSidebar({
                 <SidebarGroupLabel className="text-lg font-bold text-foreground">
                   {t("nav.tools")}
                   <div className="absolute right-5 flex gap-1">
-                    <Button
-                      variant="outline"
-                      onClick={() => setSidebarWidth(400)}
-                      className="w-[28px] h-[28px]"
-                      title={t("common.resetSidebarWidth")}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
                     <Button
                       variant="outline"
                       onClick={onClose}
@@ -1722,9 +1692,7 @@ export function SSHToolsSidebar({
                                           onDragStart={(e) =>
                                             handleDragStart(e, snippet)
                                           }
-                                          onDragOver={(e) =>
-                                            handleDragOver(e, snippet)
-                                          }
+                                          onDragOver={handleDragOver}
                                           onDrop={(e) => handleDrop(e, snippet)}
                                           onDragEnd={handleDragEnd}
                                           className={`bg-field border border-input rounded-lg cursor-move hover:shadow-lg hover:border-edge-hover hover:bg-hover-alt transition-all duration-200 p-3 group ${

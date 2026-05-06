@@ -17,12 +17,11 @@ import { getBasePath } from "@/lib/base-path";
 import { Terminal as TerminalIcon, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import type { SSHHost } from "@/types";
-import { getCookie, isElectron } from "@/ui/main-axios.ts";
+import { isElectron } from "@/ui/main-axios.ts";
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
 import { useTranslation } from "react-i18next";
 
 interface ConsoleTerminalProps {
-  sessionId: string;
   containerId: string;
   containerName: string;
   containerState: string;
@@ -30,7 +29,6 @@ interface ConsoleTerminalProps {
 }
 
 export function ConsoleTerminal({
-  sessionId,
   containerId,
   containerName,
   containerState,
@@ -63,18 +61,32 @@ export function ConsoleTerminal({
     terminal.options.fontSize = 14;
     terminal.options.fontFamily = "monospace";
 
+    const readTextFromClipboard = async (): Promise<string> => {
+      if (window.electronClipboard) {
+        return window.electronClipboard.readText();
+      }
+      return navigator.clipboard.readText();
+    };
+
+    const writeTextToClipboard = async (text: string): Promise<void> => {
+      if (window.electronClipboard) {
+        await window.electronClipboard.writeText(text);
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+    };
+
     terminal.attachCustomKeyEventHandler((e: KeyboardEvent): boolean => {
       if (e.type !== "keydown") return true;
 
       if (
-        ((e.ctrlKey && !e.altKey && !e.metaKey) ||
-          (e.metaKey && !e.ctrlKey && !e.altKey)) &&
+        ((e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) ||
+          (e.metaKey && !e.shiftKey && !e.ctrlKey && !e.altKey)) &&
         e.key.toLowerCase() === "v"
       ) {
         e.preventDefault();
         e.stopPropagation();
-        navigator.clipboard
-          .readText()
+        readTextFromClipboard()
           .then((text) => {
             if (text) terminal.paste(text);
           })
@@ -96,7 +108,7 @@ export function ConsoleTerminal({
         e.stopPropagation();
         const selection = terminal.getSelection();
         if (selection) {
-          navigator.clipboard.writeText(selection).catch(() => {
+          writeTextToClipboard(selection).catch(() => {
             toast.error(t("terminal.clipboardWriteFailed"));
           });
           terminal.clearSelection();
@@ -105,23 +117,18 @@ export function ConsoleTerminal({
       }
 
       if (
-        ((e.ctrlKey &&
-          e.shiftKey &&
-          !e.altKey &&
-          !e.metaKey &&
-          e.key.toLowerCase() === "c") ||
-          (e.ctrlKey &&
-            !e.shiftKey &&
-            !e.altKey &&
-            !e.metaKey &&
-            e.key === "Insert")) &&
+        e.ctrlKey &&
+        !e.shiftKey &&
+        !e.altKey &&
+        !e.metaKey &&
+        e.key === "Insert" &&
         terminal.hasSelection()
       ) {
         e.preventDefault();
         e.stopPropagation();
         const selection = terminal.getSelection();
         if (selection) {
-          navigator.clipboard.writeText(selection).catch(() => {
+          writeTextToClipboard(selection).catch(() => {
             toast.error(t("terminal.clipboardWriteFailed"));
           });
         }
@@ -137,8 +144,7 @@ export function ConsoleTerminal({
       ) {
         e.preventDefault();
         e.stopPropagation();
-        navigator.clipboard
-          .readText()
+        readTextFromClipboard()
           .then((text) => {
             if (text) terminal.paste(text);
           })
@@ -192,20 +198,24 @@ export function ConsoleTerminal({
       if (wsRef.current) {
         try {
           wsRef.current.send(JSON.stringify({ type: "disconnect" }));
-        } catch (error) {}
+        } catch {
+          // Best-effort disconnect during cleanup.
+        }
         wsRef.current.close();
         wsRef.current = null;
       }
 
       terminal.dispose();
     };
-  }, [terminal]);
+  }, [terminal, t]);
 
   const disconnect = React.useCallback(() => {
     if (wsRef.current) {
       try {
         wsRef.current.send(JSON.stringify({ type: "disconnect" }));
-      } catch (error) {}
+      } catch {
+        // Best-effort disconnect.
+      }
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -213,9 +223,11 @@ export function ConsoleTerminal({
     if (terminal) {
       try {
         terminal.clear();
-      } catch (error) {}
+      } catch {
+        // Terminal clear can fail after disposal.
+      }
     }
-  }, [terminal, t]);
+  }, [terminal]);
 
   const connect = React.useCallback(() => {
     if (!terminal || containerState !== "running") {
@@ -226,15 +238,6 @@ export function ConsoleTerminal({
     setIsConnecting(true);
 
     try {
-      const token = isElectron()
-        ? localStorage.getItem("jwt")
-        : getCookie("jwt");
-      if (!token) {
-        toast.error(t("docker.authenticationRequired"));
-        setIsConnecting(false);
-        return;
-      }
-
       if (fitAddonRef.current) {
         fitAddonRef.current.fit();
       }
@@ -410,7 +413,9 @@ export function ConsoleTerminal({
       if (wsRef.current) {
         try {
           wsRef.current.send(JSON.stringify({ type: "disconnect" }));
-        } catch (error) {}
+        } catch {
+          // Best-effort disconnect during cleanup.
+        }
         wsRef.current.close();
         wsRef.current = null;
       }

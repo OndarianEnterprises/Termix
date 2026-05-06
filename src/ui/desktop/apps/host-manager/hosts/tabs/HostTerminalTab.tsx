@@ -40,9 +40,6 @@ import { cn } from "@/lib/utils.ts";
 import {
   TERMINAL_THEMES,
   TERMINAL_FONTS,
-  CURSOR_STYLES,
-  BELL_STYLES,
-  FAST_SCROLL_MODIFIERS,
 } from "@/constants/terminal-themes.ts";
 import { TerminalPreview } from "@/ui/desktop/apps/features/terminal/TerminalPreview.tsx";
 import type { HostTerminalTabProps } from "./shared/tab-types";
@@ -51,7 +48,7 @@ import { useTabs } from "@/ui/desktop/navigation/tabs/TabContext.tsx";
 
 export function HostTerminalTab({ form, snippets, t }: HostTerminalTabProps) {
   const [snippetPopoverOpen, setSnippetPopoverOpen] = React.useState(false);
-  const { setPreviewTerminalTheme } = useTabs() as any;
+  const { setPreviewTerminalTheme } = useTabs();
   return (
     <div className="space-y-1">
       <FormField

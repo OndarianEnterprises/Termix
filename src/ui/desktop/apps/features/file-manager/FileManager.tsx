@@ -54,6 +54,7 @@ import {
   useConnectionLog,
 } from "@/ui/desktop/navigation/connection-log/ConnectionLogContext.tsx";
 import { ConnectionLog } from "@/ui/desktop/navigation/connection-log/ConnectionLog.tsx";
+import type { LogEntry } from "@/types/connection-log.ts";
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
 import {
   listSSHFiles,
@@ -90,6 +91,20 @@ interface FileManagerProps {
   initialHost?: SSHHost | null;
   onClose?: () => void;
 }
+
+type ConnectionLogPayload = Omit<LogEntry, "id" | "timestamp">;
+
+type SSHConnectionError = Error & {
+  connectionLogs?: ConnectionLogPayload[];
+  requires_totp?: boolean;
+  requires_warpgate?: boolean;
+  sessionId?: string;
+  prompt?: string;
+  url?: string;
+  securityKey?: string;
+  status?: string;
+  reason?: "no_keyboard" | "auth_failed" | "timeout";
+};
 
 interface CreateIntent {
   id: string;
@@ -165,7 +180,6 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
   >("no_keyboard");
   const [pinnedFiles, setPinnedFiles] = useState<Set<string>>(new Set());
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
-  const [isClosing, setIsClosing] = useState<boolean>(false);
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
 
   const [contextMenu, setContextMenu] = useState<{
@@ -446,11 +460,12 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
       } catch (dirError: unknown) {
         console.error("Failed to load initial directory:", dirError);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const sshError = error as SSHConnectionError;
       console.error("SSH connection failed:", error);
 
-      if (error?.connectionLogs) {
-        error.connectionLogs.forEach((log: any) => {
+      if (sshError.connectionLogs) {
+        sshError.connectionLogs.forEach((log) => {
           addLog({
             type: log.type,
             stage: log.stage,
@@ -458,25 +473,25 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
             details: log.details,
           });
         });
-        if (error.requires_totp) {
+        if (sshError.requires_totp) {
           setTotpRequired(true);
-          setTotpSessionId(error.sessionId || currentHost.id.toString());
+          setTotpSessionId(sshError.sessionId || currentHost.id.toString());
           setTotpPrompt(
-            error.prompt || t("fileManager.verificationCodePrompt"),
+            sshError.prompt || t("fileManager.verificationCodePrompt"),
           );
           setIsLoading(false);
           return;
         }
-        if (error.requires_warpgate) {
+        if (sshError.requires_warpgate) {
           setWarpgateRequired(true);
-          setWarpgateSessionId(error.sessionId || currentHost.id.toString());
-          setWarpgateUrl(error.url || "");
-          setWarpgateSecurityKey(error.securityKey || "N/A");
+          setWarpgateSessionId(sshError.sessionId || currentHost.id.toString());
+          setWarpgateUrl(sshError.url || "");
+          setWarpgateSecurityKey(sshError.securityKey || "N/A");
           setIsLoading(false);
           return;
         }
-        if (error.status === "auth_required") {
-          setAuthDialogReason(error.reason || "no_keyboard");
+        if (sshError.status === "auth_required") {
+          setAuthDialogReason(sshError.reason || "no_keyboard");
           setShowAuthDialog(true);
           setIsLoading(false);
           return;
@@ -485,7 +500,10 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
         addLog({
           type: "error",
           stage: "connection",
-          message: error?.message || t("fileManager.failedToConnect"),
+          message:
+            error instanceof Error
+              ? error.message
+              : t("fileManager.failedToConnect"),
         });
       }
 
@@ -539,25 +557,36 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
         return true;
       } catch (error: unknown) {
         if (currentLoadingPathRef.current === resolvedPath) {
-          const axiosError = error as {
+          // ApiError has .status directly; raw axios errors have .response.status
+          const apiError = error as {
+            status?: number;
+            code?: string;
             response?: {
               status?: number;
               data?: {
                 needsSudo?: boolean;
                 error?: string;
                 sudoFailed?: boolean;
+                disconnected?: boolean;
               };
             };
             message?: string;
           };
 
-          if (axiosError.response?.data?.needsSudo) {
+          const httpStatus = apiError.status ?? apiError.response?.status;
+
+          // 409 = concurrent request already in flight — silently drop
+          if (httpStatus === 409) {
+            return false;
+          }
+
+          if (apiError.response?.data?.needsSudo) {
             if (!sudoDialogOpen) {
               setPendingSudoOperation({ type: "navigate", path: resolvedPath });
               setSudoDialogOpen(true);
             }
 
-            if (axiosError.response.data.sudoFailed) {
+            if (apiError.response.data.sudoFailed) {
               toast.error(t("fileManager.sudoAuthFailed"));
             } else {
               toast.error(t("fileManager.permissionDenied"));
@@ -568,21 +597,47 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
           console.error("Failed to load directory:", error);
 
           const errorMessage =
-            axiosError.response?.data?.error ||
-            axiosError.message ||
-            String(error);
+            apiError.response?.data?.error || apiError.message || String(error);
 
-          if (initialLoadDoneRef.current) {
+          const isConnectionError =
+            // 500s from the file manager are SSH channel/session errors
+            httpStatus === 500 ||
+            httpStatus === 503 ||
+            apiError.response?.data?.disconnected === true ||
+            errorMessage?.includes("channel open failure") ||
+            errorMessage?.includes("open failed") ||
+            errorMessage?.includes("SSH connection not established") ||
+            errorMessage?.includes("SSH session") ||
+            errorMessage?.toLowerCase().includes("not connected");
+
+          if (isConnectionError && sshSessionId && currentHost) {
+            setIsReconnecting(true);
+            setIsLoading(false);
+            setFiles([]);
+            currentLoadingPathRef.current = "";
+
+            void (async () => {
+              const delays = [1000, 2000, 3000, 5000, 5000];
+              for (let attempt = 0; attempt < delays.length; attempt++) {
+                await new Promise((r) => setTimeout(r, delays[attempt]));
+                try {
+                  await ensureSSHConnection();
+                  setIsReconnecting(false);
+                  loadDirectory(resolvedPath);
+                  return;
+                } catch {
+                  // keep retrying
+                }
+              }
+              setIsReconnecting(false);
+              handleCloseWithError(
+                t("fileManager.failedToLoadDirectory") + ": " + errorMessage,
+              );
+            })();
+
+            return false;
+          } else if (initialLoadDoneRef.current) {
             toast.error(
-              t("fileManager.failedToLoadDirectory") + ": " + errorMessage,
-            );
-          }
-
-          if (
-            errorMessage?.includes("connection") ||
-            errorMessage?.includes("SSH")
-          ) {
-            handleCloseWithError(
               t("fileManager.failedToLoadDirectory") + ": " + errorMessage,
             );
           }
@@ -595,7 +650,7 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
         }
       }
     },
-    [sshSessionId, isLoading, clearSelection, t, sudoDialogOpen],
+    [sshSessionId, isLoading, clearSelection, t, sudoDialogOpen, currentHost],
   );
 
   const debouncedLoadDirectory = useCallback(
@@ -699,19 +754,14 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
         reader.onerror = () => reject(reader.error);
 
         reader.onload = () => {
-          if (reader.result instanceof ArrayBuffer) {
-            const bytes = new Uint8Array(reader.result);
-            let binary = "";
-            for (let i = 0; i < bytes.byteLength; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            const base64 = btoa(binary);
+          if (typeof reader.result === "string") {
+            const base64 = reader.result.split(",")[1] || "";
             resolve(base64);
           } else {
             reject(new Error("Failed to read file"));
           }
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsDataURL(file);
       });
 
       await uploadSSHFile(
@@ -1530,40 +1580,30 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
   }
 
   async function ensureSSHConnection() {
-    if (!sshSessionId || !currentHost || isReconnecting) return;
+    if (!sshSessionId || !currentHost) return;
 
-    try {
-      const status = await getSSHStatus(sshSessionId);
+    const status = await getSSHStatus(sshSessionId);
 
-      if (!status.connected && !isReconnecting) {
-        setIsReconnecting(true);
-        await connectSSH(sshSessionId, {
-          hostId: currentHost.id,
-          ip: currentHost.ip,
-          port: currentHost.port,
-          username: currentHost.username,
-          password: currentHost.password,
-          sshKey: currentHost.key,
-          keyPassword: currentHost.keyPassword,
-          authType: currentHost.authType,
-          credentialId: currentHost.credentialId,
-          userId: currentHost.userId,
-          jumpHosts: currentHost.jumpHosts,
-          useSocks5: currentHost.useSocks5,
-          socks5Host: currentHost.socks5Host,
-          socks5Port: currentHost.socks5Port,
-          socks5Username: currentHost.socks5Username,
-          socks5Password: currentHost.socks5Password,
-          socks5ProxyChain: currentHost.socks5ProxyChain,
-        });
-      }
-    } catch (error) {
-      handleCloseWithError(
-        `SSH connection failed. Please check your connection to ${currentHost?.name} (${currentHost?.ip}:${currentHost?.port})`,
-      );
-      throw error;
-    } finally {
-      setIsReconnecting(false);
+    if (!status.connected) {
+      await connectSSH(sshSessionId, {
+        hostId: currentHost.id,
+        ip: currentHost.ip,
+        port: currentHost.port,
+        username: currentHost.username,
+        password: currentHost.password,
+        sshKey: currentHost.key,
+        keyPassword: currentHost.keyPassword,
+        authType: currentHost.authType,
+        credentialId: currentHost.credentialId,
+        userId: currentHost.userId,
+        jumpHosts: currentHost.jumpHosts,
+        useSocks5: currentHost.useSocks5,
+        socks5Host: currentHost.socks5Host,
+        socks5Port: currentHost.socks5Port,
+        socks5Username: currentHost.socks5Username,
+        socks5Password: currentHost.socks5Password,
+        socks5ProxyChain: currentHost.socks5ProxyChain,
+      });
     }
   }
 

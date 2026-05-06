@@ -1,20 +1,44 @@
 /* eslint-disable react-refresh/only-export-components */
-import { StrictMode, useEffect, useState, useRef } from "react";
+import { prepareClientCacheVersion } from "@/lib/client-cache-version";
+import { StrictMode, Suspense, lazy, useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
-import DesktopApp from "@/ui/desktop/DesktopApp.tsx";
-import { MobileApp } from "@/ui/mobile/MobileApp.tsx";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ElectronVersionCheck } from "@/ui/desktop/user/ElectronVersionCheck.tsx";
 import "./i18n/i18n";
-import { isElectron } from "./ui/main-axios.ts";
-import HostManagerApp from "./ui/desktop/apps/host-manager/HostManagerApp.tsx";
-import TerminalApp from "./ui/desktop/apps/features/terminal/TerminalApp.tsx";
-import FileManagerApp from "./ui/desktop/apps/features/file-manager/FileManagerApp.tsx";
-import TunnelApp from "./ui/desktop/apps/features/tunnel/TunnelApp.tsx";
-import ServerStatsApp from "./ui/desktop/apps/features/server-stats/ServerStatsApp.tsx";
-import DockerApp from "./ui/desktop/apps/features/docker/DockerApp.tsx";
-import GuacamoleApp from "@/ui/desktop/apps/features/guacamole/GuacamoleApp.tsx";
+import { isElectron } from "@/lib/electron";
+
+const DesktopApp = lazy(() => import("@/ui/desktop/DesktopApp.tsx"));
+const MobileApp = lazy(() =>
+  import("@/ui/mobile/MobileApp.tsx").then((module) => ({
+    default: module.MobileApp,
+  })),
+);
+const HostManagerApp = lazy(
+  () => import("./ui/desktop/apps/host-manager/HostManagerApp.tsx"),
+);
+const TerminalApp = lazy(
+  () => import("./ui/desktop/apps/features/terminal/TerminalApp.tsx"),
+);
+const FileManagerApp = lazy(
+  () => import("./ui/desktop/apps/features/file-manager/FileManagerApp.tsx"),
+);
+const TunnelApp = lazy(
+  () => import("./ui/desktop/apps/features/tunnel/TunnelApp.tsx"),
+);
+const ServerStatsApp = lazy(
+  () => import("./ui/desktop/apps/features/server-stats/ServerStatsApp.tsx"),
+);
+const DockerApp = lazy(
+  () => import("./ui/desktop/apps/features/docker/DockerApp.tsx"),
+);
+const GuacamoleApp = lazy(
+  () => import("@/ui/desktop/apps/features/guacamole/GuacamoleApp.tsx"),
+);
+const ElectronVersionCheck = lazy(() =>
+  import("@/ui/desktop/user/ElectronVersionCheck.tsx").then((module) => ({
+    default: module.ElectronVersionCheck,
+  })),
+);
 
 const FullscreenApp: React.FC = () => {
   const searchParams = new URLSearchParams(window.location.search);
@@ -96,7 +120,10 @@ function RootApp() {
   useServiceWorker();
 
   const userAgent =
-    navigator.userAgent || navigator.vendor || (window as any).opera || "";
+    navigator.userAgent ||
+    navigator.vendor ||
+    (window as Window & { opera?: string }).opera ||
+    "";
   const isTermixMobile = /Termix-Mobile/.test(userAgent);
 
   const searchParams = new URLSearchParams(window.location.search);
@@ -141,22 +168,26 @@ function RootApp() {
       )}
       <div className="relative min-h-screen" style={{ zIndex: 1 }}>
         {isElectron() && showVersionCheck && !isFullscreen ? (
-          <ElectronVersionCheck
-            onContinue={() => setShowVersionCheck(false)}
-            isAuthenticated={false}
-          />
+          <Suspense fallback={null}>
+            <ElectronVersionCheck
+              onContinue={() => setShowVersionCheck(false)}
+              isAuthenticated={false}
+            />
+          </Suspense>
         ) : (
-          renderApp()
+          <Suspense fallback={null}>{renderApp()}</Suspense>
         )}
       </div>
     </>
   );
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <RootApp />
-    </ThemeProvider>
-  </StrictMode>,
-);
+prepareClientCacheVersion().finally(() => {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <RootApp />
+      </ThemeProvider>
+    </StrictMode>,
+  );
+});

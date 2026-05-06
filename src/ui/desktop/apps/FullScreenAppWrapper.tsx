@@ -6,6 +6,7 @@ import { getSSHHosts, getUserInfo } from "@/ui/main-axios.ts";
 import type { SSHHost } from "@/types";
 import { Dashboard } from "@/ui/desktop/apps/dashboard/Dashboard.tsx";
 import { Toaster } from "@/components/ui/sonner.tsx";
+import { dbHealthMonitor } from "@/lib/db-health-monitor.ts";
 
 interface FullScreenAppWrapperProps {
   hostId?: string;
@@ -20,7 +21,18 @@ export const FullScreenAppWrapper: React.FC<FullScreenAppWrapperProps> = ({
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+      setHostConfig(null);
+    };
+
+    dbHealthMonitor.on("session-expired", handleSessionExpired);
+    return () => dbHealthMonitor.off("session-expired", handleSessionExpired);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -28,9 +40,8 @@ export const FullScreenAppWrapper: React.FC<FullScreenAppWrapperProps> = ({
         const userInfo = await getUserInfo();
         if (userInfo) {
           setIsAuthenticated(true);
-          setIsAdmin(userInfo.isAdmin || false);
         }
-      } catch (error) {
+      } catch {
         setIsAuthenticated(false);
       } finally {
         setAuthLoading(false);
@@ -65,13 +76,8 @@ export const FullScreenAppWrapper: React.FC<FullScreenAppWrapperProps> = ({
     }
   }, [hostId, isAuthenticated, authLoading]);
 
-  const handleAuthSuccess = (authData: {
-    isAdmin: boolean;
-    username: string | null;
-    userId: string | null;
-  }) => {
+  const handleAuthSuccess = () => {
     setIsAuthenticated(true);
-    setIsAdmin(authData.isAdmin);
     window.location.reload();
   };
 

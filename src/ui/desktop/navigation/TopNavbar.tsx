@@ -10,47 +10,20 @@ import { TabDropdown } from "@/ui/desktop/navigation/tabs/TabDropdown.tsx";
 import { SSHToolsSidebar } from "@/ui/desktop/apps/tools/SSHToolsSidebar.tsx";
 import { useCommandHistory } from "@/ui/desktop/apps/features/terminal/command-history/CommandHistoryContext.tsx";
 import { QuickConnectDialog } from "@/ui/desktop/navigation/dialogs/QuickConnectDialog.tsx";
-import { useTheme } from "@/components/theme-provider";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu.tsx";
-import {
-  Sun,
-  Moon,
-  Monitor,
-  Palette,
-  Terminal as TerminalIcon,
-} from "lucide-react";
-import { TERMINAL_THEMES } from "@/constants/terminal-themes.ts";
 
-interface TabData {
-  id: number;
-  type: string;
-  title: string;
-  terminalRef?: {
-    current?: {
-      sendInput?: (data: string) => void;
-    };
-  };
-  [key: string]: unknown;
-}
+import type { TabContextTab } from "@/types";
+
+type TabData = TabContextTab;
 
 interface TopNavbarProps {
   isTopbarOpen: boolean;
   setIsTopbarOpen: (open: boolean) => void;
-  onOpenCommandPalette: () => void;
   onRightSidebarStateChange?: (isOpen: boolean, width: number) => void;
 }
 
 export function TopNavbar({
   isTopbarOpen,
   setIsTopbarOpen,
-  onOpenCommandPalette,
   onRightSidebarStateChange,
 }: TopNavbarProps): React.ReactElement {
   const { state } = useSidebar();
@@ -58,14 +31,12 @@ export function TopNavbar({
     tabs,
     currentTab,
     setCurrentTab,
-    setSplitScreenTab,
     removeTab,
     allSplitScreenTab,
     reorderTabs,
     updateTab,
-    previewTerminalTheme,
     setPreviewTerminalTheme,
-  } = useTabs() as any;
+  } = useTabs();
   const leftPosition =
     state === "collapsed" ? "26px" : "calc(var(--sidebar-width) + 8px)";
   const { t } = useTranslation();
@@ -145,7 +116,7 @@ export function TopNavbar({
     setCurrentTab(tabId);
   };
 
-  const handleTabSplit = (tabId: number) => {
+  const handleTabSplit = () => {
     setToolsSidebarOpen(true);
     setCommandHistoryTabActive(false);
     setSplitScreenTabActive(true);
@@ -353,12 +324,6 @@ export function TopNavbar({
 
   const isSplitScreenActive =
     Array.isArray(allSplitScreenTab) && allSplitScreenTab.length > 0;
-  const currentTabObj = tabs.find((t: TabData) => t.id === currentTab);
-  const currentTabIsHome = currentTabObj?.type === "home";
-  const currentTabIsSshManager = currentTabObj?.type === "ssh_manager";
-  const currentTabIsAdmin = currentTabObj?.type === "admin";
-  const currentTabIsUserProfile = currentTabObj?.type === "user_profile";
-
   return (
     <div>
       <div
@@ -406,7 +371,6 @@ export function TopNavbar({
             const disableClose = isHome;
 
             const isDraggingThisTab = dragState.draggedIndex === index;
-            const isTheDraggedTab = tab.id === dragState.draggedId;
             const isDroppedAndSnapping = tab.id === justDroppedTabId;
             const dragOffset = isDraggingThisTab
               ? dragState.currentX - dragState.startX
@@ -516,9 +480,7 @@ export function TopNavbar({
                       ? () => handleTabClose(tab.id)
                       : undefined
                   }
-                  onSplit={
-                    isSplittable ? () => handleTabSplit(tab.id) : undefined
-                  }
+                  onSplit={isSplittable ? handleTabSplit : undefined}
                   canSplit={isSplittable}
                   canClose={
                     isTerminal ||
@@ -540,6 +502,11 @@ export function TopNavbar({
                   isDragging={isDraggingThisTab}
                   isDragOver={false}
                   hostConfig={tab.hostConfig}
+                  onOpenFileManager={
+                    isTerminal && (tab.hostConfig as any)?.enableFileManager
+                      ? () => tab.terminalRef?.current?.openFileManager?.()
+                      : undefined
+                  }
                 />
               </div>
             );
@@ -548,73 +515,6 @@ export function TopNavbar({
 
         <div className="flex items-center justify-center gap-2 flex-1 px-2">
           <TabDropdown />
-
-          {/* Terminal Theme Switcher */}
-          {(() => {
-            const activeTab = tabs.find((t: any) => t.id === currentTab);
-            if (activeTab?.type !== "terminal") return null;
-
-            return (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-[30px] h-[30px] border-edge"
-                    title={t("hosts.selectTheme")}
-                  >
-                    <TerminalIcon className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="bg-canvas border-edge text-foreground max-h-[400px] overflow-y-auto thin-scrollbar"
-                  onMouseLeave={() => setPreviewTerminalTheme(null)}
-                >
-                  <DropdownMenuLabel className="text-xs opacity-70">
-                    Terminal Themes
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {Object.entries(TERMINAL_THEMES).map(([key, theme]) => (
-                    <DropdownMenuItem
-                      key={key}
-                      onClick={() => {
-                        const activeTab = tabs.find(
-                          (t: any) => t.id === currentTab,
-                        );
-                        if (activeTab?.hostConfig) {
-                          const updatedConfig = {
-                            ...activeTab.hostConfig.terminalConfig,
-                            theme: key,
-                          };
-
-                          // Persist terminal theme selection to localStorage
-                          localStorage.setItem(
-                            `terminal_theme_host_${activeTab.hostConfig.id}`,
-                            key,
-                          );
-
-                          updateTab(currentTab, {
-                            hostConfig: {
-                              ...activeTab.hostConfig,
-                              terminalConfig: updatedConfig,
-                            },
-                          });
-                        }
-                      }}
-                      onMouseEnter={() => setPreviewTerminalTheme(key)}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <div
-                        className="w-3 h-3 rounded-full border border-edge"
-                        style={{ backgroundColor: theme.colors.background }}
-                      />
-                      <span>{theme.name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            );
-          })()}
 
           <Button
             variant="outline"

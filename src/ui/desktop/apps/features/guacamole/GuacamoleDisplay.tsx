@@ -8,7 +8,11 @@ import {
 } from "react";
 import Guacamole from "guacamole-common-js";
 import { useTranslation } from "react-i18next";
-import { getCookie, isElectron, isEmbeddedMode } from "@/ui/main-axios.ts";
+import {
+  getGuacamoleToken,
+  isElectron,
+  isEmbeddedMode,
+} from "@/ui/main-axios.ts";
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
 
 export type GuacamoleConnectionType = "rdp" | "vnc" | "telnet";
@@ -64,7 +68,6 @@ export const GuacamoleDisplay = forwardRef<
   const windowFocusedRef = useRef(
     typeof document === "undefined" ? true : document.hasFocus(),
   );
-  const [isConnecting, setIsConnecting] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
   useImperativeHandle(ref, () => ({
@@ -108,45 +111,35 @@ export const GuacamoleDisplay = forwardRef<
     ): Promise<string | null> => {
       try {
         let token: string;
+        const protocol = connectionConfig.protocol ?? connectionConfig.type;
 
         if (connectionConfig.token) {
           token = connectionConfig.token;
         } else {
-          const jwtToken = getCookie("jwt");
-          if (!jwtToken) {
-            onError?.("Authentication required");
-            return null;
-          }
-
-          const baseUrl = isDev
-            ? "http://localhost:30001"
-            : isElectron()
-              ? (window as { configuredServerUrl?: string })
-                  .configuredServerUrl || "http://127.0.0.1:30001"
-              : `${window.location.origin}`;
-
-          const response = await fetch(`${baseUrl}/guacamole/token`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${jwtToken}`,
-            },
-            body: JSON.stringify(connectionConfig),
-            credentials: "include",
+          const data = await getGuacamoleToken({
+            protocol: protocol ?? "rdp",
+            hostname: String(connectionConfig.hostname ?? ""),
+            port: connectionConfig.port,
+            username: connectionConfig.username,
+            password: connectionConfig.password,
+            domain: connectionConfig.domain,
+            security:
+              typeof connectionConfig.security === "string"
+                ? connectionConfig.security
+                : undefined,
+            ignoreCert:
+              typeof connectionConfig.ignoreCert === "boolean"
+                ? connectionConfig.ignoreCert
+                : undefined,
+            guacamoleConfig: connectionConfig.guacamoleConfig as Parameters<
+              typeof getGuacamoleToken
+            >[0]["guacamoleConfig"],
           });
-
-          if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || "Failed to get connection token");
-          }
-
-          const data = await response.json();
           token = data.token;
         }
 
         const width = connectionConfig.width ?? containerWidth ?? 1280;
         const height = connectionConfig.height ?? containerHeight ?? 720;
-        const protocol = connectionConfig.protocol ?? connectionConfig.type;
         const dpi = protocol === "rdp" ? (connectionConfig.dpi ?? 96) : null;
 
         const wsBase = isDev
@@ -281,7 +274,6 @@ export const GuacamoleDisplay = forwardRef<
   const connect = useCallback(async () => {
     if (isConnectingRef.current) return;
     isConnectingRef.current = true;
-    setIsConnecting(true);
     setIsReady(false);
 
     let containerWidth = containerRef.current?.clientWidth || 0;
@@ -295,7 +287,6 @@ export const GuacamoleDisplay = forwardRef<
     const wsUrl = await getWebSocketUrl(containerWidth, containerHeight);
     if (!wsUrl) {
       isConnectingRef.current = false;
-      setIsConnecting(false);
       return;
     }
 
@@ -364,19 +355,16 @@ export const GuacamoleDisplay = forwardRef<
         case 0:
           break;
         case 1:
-          setIsConnecting(true);
           break;
         case 2:
           break;
         case 3:
-          setIsConnecting(false);
           setIsReady(true);
           onConnect?.();
           break;
         case 4:
           break;
         case 5:
-          setIsConnecting(false);
           setIsReady(false);
           hasKeyboardFocusRef.current = false;
           refreshKeyboardHandlers();
@@ -387,7 +375,6 @@ export const GuacamoleDisplay = forwardRef<
 
     client.onerror = (error: Guacamole.Status) => {
       const errorMessage = error.message || "Connection error";
-      setIsConnecting(false);
       setIsReady(false);
       onError?.(errorMessage);
     };

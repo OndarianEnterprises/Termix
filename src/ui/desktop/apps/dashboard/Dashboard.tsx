@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState } from "react";
 import { Auth } from "@/ui/desktop/authentication/Auth.tsx";
 import { AlertManager } from "@/ui/desktop/apps/dashboard/apps/alerts/AlertManager.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   getUserInfo,
   getDatabaseHealth,
-  getCookie,
   getUptime,
   getVersionInfo,
   getSSHHosts,
@@ -18,6 +17,7 @@ import {
   sendMetricsHeartbeat,
   getGuacamoleDpi,
   getGuacamoleTokenFromHost,
+  isCurrentAuthInvalidationError,
   type RecentActivityItem,
 } from "@/ui/main-axios.ts";
 import { useSidebar } from "@/components/ui/sidebar.tsx";
@@ -64,11 +64,11 @@ export function Dashboard({
   const [isAdmin, setIsAdmin] = useState(false);
   const [, setUsername] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [dbError, setDbError] = useState<string | null>(initialDbError);
+  const [, setDbError] = useState<string | null>(initialDbError);
 
   const [uptime, setUptime] = useState<string>("0d 0h 0m");
   const [versionStatus, setVersionStatus] = useState<
-    "up_to_date" | "requires_update"
+    "up_to_date" | "requires_update" | "beta"
   >("up_to_date");
   const [versionText, setVersionText] = useState<string>("");
   const [dbHealth, setDbHealth] = useState<"healthy" | "error">("healthy");
@@ -93,7 +93,7 @@ export function Dashboard({
   );
   const [initialLoading, setInitialLoading] = useState(true);
 
-  const { addTab, setCurrentTab, tabs: tabList, updateTab } = useTabs();
+  const { addTab, setCurrentTab, tabs: tabList } = useTabs();
   const {
     layout,
     loading: preferencesLoading,
@@ -102,12 +102,12 @@ export function Dashboard({
   } = useDashboardPreferences(loggedIn);
 
   let sidebarState: "expanded" | "collapsed" = "expanded";
-  let sidebarAvailable = false;
   try {
     const sidebar = useSidebar();
     sidebarState = sidebar.state;
-    sidebarAvailable = true;
-  } catch {}
+  } catch {
+    // Sidebar context is not available on every dashboard mount path.
+  }
 
   const topMarginPx = isTopbarOpen ? 74 : 26;
   const leftMarginPx = sidebarState === "collapsed" ? 26 : 8;
@@ -120,40 +120,36 @@ export function Dashboard({
 
   useEffect(() => {
     if (isAuthenticated) {
-      if (getCookie("jwt")) {
-        getUserInfo()
-          .then((meRes) => {
-            setIsAdmin(!!meRes.is_admin);
-            setUsername(meRes.username || null);
-            setUserId(meRes.userId || null);
-            setDbError(null);
-          })
-          .catch((err) => {
+      getUserInfo()
+        .then((meRes) => {
+          setIsAdmin(!!meRes.is_admin);
+          setUsername(meRes.username || null);
+          setUserId(meRes.userId || null);
+          setDbError(null);
+        })
+        .catch((err) => {
+          if (isCurrentAuthInvalidationError(err)) {
             setIsAdmin(false);
             setUsername(null);
             setUserId(null);
-
-            const errorCode = err?.response?.data?.code;
-            if (errorCode === "SESSION_EXPIRED") {
-              console.warn("Session expired - please log in again");
-              setDbError("Session expired - please log in again");
-            } else {
-              setDbError(null);
-            }
-          });
-
-        getDatabaseHealth()
-          .then(() => {
+            console.warn("Session expired - please log in again");
+            setDbError("Session expired - please log in again");
+          } else {
             setDbError(null);
-          })
-          .catch((err) => {
-            if (err?.response?.data?.error?.includes("Database")) {
-              setDbError(
-                "Could not connect to the database. Please try again later.",
-              );
-            }
-          });
-      }
+          }
+        });
+
+      getDatabaseHealth()
+        .then(() => {
+          setDbError(null);
+        })
+        .catch((err) => {
+          if (err?.response?.data?.error?.includes("Database")) {
+            setDbError(
+              "Could not connect to the database. Please try again later.",
+            );
+          }
+        });
     }
   }, [isAuthenticated]);
 
@@ -173,7 +169,8 @@ export function Dashboard({
           setVersionText(`v${versionInfo.localVersion}`);
           if (
             versionInfo.status === "up_to_date" ||
-            versionInfo.status === "requires_update"
+            versionInfo.status === "requires_update" ||
+            versionInfo.status === "beta"
           ) {
             setVersionStatus(versionInfo.status);
           }
@@ -602,7 +599,6 @@ export function Dashboard({
             setUserId={setUserId}
             loggedIn={loggedIn}
             authLoading={authLoading}
-            dbError={dbError}
             setDbError={setDbError}
             onAuthSuccess={onAuthSuccess}
           />
@@ -636,7 +632,7 @@ export function Dashboard({
               <div className="flex flex-row gap-3 flex-wrap min-w-0">
                 <div className="flex flex-col items-center gap-4 justify-center mr-5 min-w-0 shrink">
                   <p className="text-muted-foreground text-sm whitespace-nowrap">
-                    Press <Kbd>LShift</Kbd> twice to open the command palette
+                    Press <Kbd>L Shift</Kbd> twice to open the command palette
                   </p>
                 </div>
                 <Button
