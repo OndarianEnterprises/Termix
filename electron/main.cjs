@@ -564,7 +564,9 @@ function getBackendEntryPath() {
   if (isDev) {
     return path.join(appRoot, "dist", "backend", "backend", "starter.js");
   }
-  return path.join(appRoot, "dist", "backend", "backend", "starter.js");
+  // Backend is asarUnpack'd — fork() cannot run files inside .asar archives
+  const unpackedRoot = appRoot.replace("app.asar", "app.asar.unpacked");
+  return path.join(unpackedRoot, "dist", "backend", "backend", "starter.js");
 }
 
 function getBackendDataDir() {
