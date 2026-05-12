@@ -17,7 +17,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "postinstall": "node scripts/patch-app-builder-lib.cjs",
-    "prebuild": "node scripts/write-electron-build-info.cjs",
+    "prebuild": "node scripts/write-electron-build-info.cjs && node scripts/sync-edex-vite-shell-public.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "type-check": "tsc --noEmit",

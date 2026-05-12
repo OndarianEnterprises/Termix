@@ -23,6 +23,7 @@ import type { GuacamoleConnectionConfig } from "@/ui/desktop/apps/features/guaca
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
 import { useEdexSettings } from "@/ui/desktop/apps/edex/edexSettings.ts";
 import { EdexShellFrameProvider } from "@/ui/desktop/apps/edex/edexShellFrameContext.tsx";
+import { resolveTermixSshWebSocketBaseUrl } from "@/ui/desktop/apps/edex/resolveTermixSshWebSocketBaseUrl.ts";
 import {
   getGuacamoleDpi,
   getGuacamoleTokenFromHost,
