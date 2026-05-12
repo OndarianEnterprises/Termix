@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 COPY package*.json ./
 COPY .npmrc ./
 COPY vendor ./vendor
+COPY packages/edex-vite-shell ./packages/edex-vite-shell
 
 RUN npm ci --ignore-scripts && \
     npm cache clean --force
@@ -41,6 +42,7 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 COPY package*.json ./
 COPY .npmrc ./
 COPY vendor ./vendor
+COPY packages/edex-vite-shell ./packages/edex-vite-shell
 
 RUN npm ci --omit=dev --ignore-scripts && \
     npm rebuild better-sqlite3 bcryptjs && \
