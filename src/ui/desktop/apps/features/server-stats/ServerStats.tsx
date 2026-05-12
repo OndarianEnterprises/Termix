@@ -38,6 +38,7 @@ import {
 } from "./widgets";
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
 import { RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils.ts";
 import {
   ConnectionLogProvider,
   useConnectionLog,
@@ -75,6 +76,7 @@ interface ServerProps {
   isVisible?: boolean;
   isTopbarOpen?: boolean;
   embedded?: boolean;
+  chromeAppearance?: "termix" | "edex";
 }
 
 function ServerStatsInner({
@@ -83,6 +85,7 @@ function ServerStatsInner({
   isVisible = true,
   isTopbarOpen = true,
   embedded = false,
+  chromeAppearance = "termix",
 }: ServerProps): React.ReactElement {
   const { t } = useTranslation();
   const { state: sidebarState } = useSidebar();
@@ -226,6 +229,8 @@ function ServerStatsInner({
 
   const handleTOTPCancel = async () => {
     setTotpRequired(false);
+    setTotpSessionId(null);
+    setTotpPrompt("");
     if (currentHostConfig?.id) {
       try {
         await stopMetricsPolling(currentHostConfig.id);
@@ -233,7 +238,7 @@ function ServerStatsInner({
         console.error("Failed to stop metrics polling:", error);
       }
     }
-    if (currentTab !== null) {
+    if (!embedded && currentTab !== null) {
       removeTab(currentTab);
     }
   };
@@ -394,7 +399,9 @@ function ServerStatsInner({
       if (currentHostConfig.authType === "none") {
         toast.error(t("serverStats.noneAuthNotSupported"));
         setIsLoadingMetrics(false);
-        if (currentTab !== null) {
+        setHasConnectionError(true);
+        setShowStatsUI(false);
+        if (!embedded && currentTab !== null) {
           removeTab(currentTab);
         }
         return;
@@ -579,7 +586,10 @@ function ServerStatsInner({
       };
 
   const containerClass = embedded
-    ? "h-full w-full text-foreground overflow-hidden bg-transparent"
+    ? cn(
+        "h-full w-full text-foreground overflow-hidden bg-transparent",
+        chromeAppearance === "edex" && "termix-server-stats--edex",
+      )
     : "bg-canvas text-foreground rounded-lg border-2 border-edge overflow-hidden";
 
   return (
@@ -594,7 +604,14 @@ function ServerStatsInner({
         }}
       >
         {!totpRequired && !isLoadingMetrics && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 pt-3 pb-3 gap-3">
+          <div
+            className={cn(
+              "flex flex-col sm:flex-row sm:items-center justify-between px-4 pt-3 pb-3 gap-3",
+              embedded &&
+                chromeAppearance === "edex" &&
+                "termix-server-stats__header--edex",
+            )}
+          >
             <div className="flex items-center gap-4 min-w-0">
               <div className="min-w-0">
                 <h1 className="font-bold text-lg truncate">

@@ -23,6 +23,7 @@ import {
   unlinkOIDCFromPasswordAccount,
 } from "@/ui/main-axios.ts";
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
+import { useEdexShellEmbeddedStage } from "@/ui/desktop/apps/edex/edexShellFrameContext.tsx";
 import { RolesTab } from "@/ui/desktop/apps/admin/tabs/RolesTab.tsx";
 import { GeneralSettingsTab } from "@/ui/desktop/apps/admin/tabs/GeneralSettingsTab.tsx";
 import { OIDCSettingsTab } from "@/ui/desktop/apps/admin/tabs/OIDCSettingsTab.tsx";
@@ -48,6 +49,7 @@ export function AdminSettings({
   const { t } = useTranslation();
   const { confirmWithToast } = useConfirmation();
   const { state: sidebarState } = useSidebar();
+  const embeddedInEdexShell = useEdexShellEmbeddedStage();
 
   const [loading, setLoading] = React.useState(true);
   const [allowRegistration, setAllowRegistration] = React.useState(true);
@@ -324,17 +326,21 @@ export function AdminSettings({
     );
   };
 
-  const topMarginPx = isTopbarOpen ? 74 : 26;
-  const leftMarginPx = sidebarState === "collapsed" ? 26 : 8;
-  const bottomMarginPx = 8;
+  const topMarginPx = embeddedInEdexShell ? 0 : isTopbarOpen ? 74 : 26;
+  const leftMarginPx = embeddedInEdexShell ? 0 : sidebarState === "collapsed" ? 26 : 8;
+  const bottomMarginPx = embeddedInEdexShell ? 0 : 8;
+  const rightChromePx = embeddedInEdexShell ? 0 : 8;
+  const rightEdgePx = embeddedInEdexShell ? 0 : 17;
   const wrapperStyle: React.CSSProperties = {
     marginLeft: leftMarginPx,
     marginRight: rightSidebarOpen
-      ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + 8px)`
-      : 17,
+      ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + ${rightChromePx}px)`
+      : rightEdgePx,
     marginTop: topMarginPx,
     marginBottom: bottomMarginPx,
-    height: `calc(100vh - ${topMarginPx + bottomMarginPx}px)`,
+    height: embeddedInEdexShell
+      ? `calc(100% - ${topMarginPx + bottomMarginPx}px)`
+      : `calc(100vh - ${topMarginPx + bottomMarginPx}px)`,
     transition:
       "margin-left 200ms linear, margin-right 200ms linear, margin-top 200ms linear",
   };
@@ -342,7 +348,11 @@ export function AdminSettings({
   return (
     <div
       style={wrapperStyle}
-      className="bg-canvas text-foreground rounded-lg border-2 border-edge overflow-hidden"
+      className={
+        embeddedInEdexShell
+          ? "bg-canvas text-foreground rounded-none border border-edge overflow-hidden h-full min-h-0"
+          : "bg-canvas text-foreground rounded-lg border-2 border-edge overflow-hidden"
+      }
     >
       <SimpleLoader visible={loading} message={t("common.loading")} />
       <div className="h-full w-full flex flex-col">

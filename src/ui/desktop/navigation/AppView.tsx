@@ -25,6 +25,8 @@ import {
 import { useTheme } from "@/components/theme-provider";
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
 import { useTranslation } from "react-i18next";
+import { useEdexShellEmbeddedStage } from "@/ui/desktop/apps/edex/edexShellFrameContext.tsx";
+import { EdexSplitWorkspace } from "@/ui/desktop/apps/edex/EdexSplitWorkspace.tsx";
 
 const Terminal = lazy(() =>
   import("@/ui/desktop/apps/features/terminal/Terminal.tsx").then((module) => ({
@@ -94,6 +96,19 @@ type LayoutNode =
   | number // leaf: index into layoutTabs[]
   | { direction: "horizontal" | "vertical"; children: LayoutNode[] };
 
+/**
+ * Split-screen layout for multipanel tabs (2–6 visible tabs).
+ *
+ * - `allSplitScreenTab` from `TabContext` is an ordered list of **tab ids** currently
+ *   in split mode (same order as the user arranged them). Length 0 means single-panel.
+ * - `layoutTabs` (inside render helpers) maps those ids to `TabData` rows in **split
+ *   order**; panel titles and refs use those rows.
+ * - `SPLIT_LAYOUTS[n]` describes a fixed **binary tree** of `ResizablePanelGroup` nodes
+ *   for `n` panels: leaf indices 0..n-1 index into `layoutTabs` (not global tab order).
+ * - `fitActiveAndNotify` / `scheduleMeasureAndFit` run after drag-resize (`onLayout`,
+ *   `onResize`) and on window resize so `Terminal`/`GuacamoleDisplay` call `fit`,
+ *   `notifyResize`, and `refresh` on visible panels only.
+ */
 const SPLIT_LAYOUTS: Record<number, LayoutNode> = {
   2: { direction: "horizontal", children: [0, 1] },
   3: {
@@ -152,6 +167,7 @@ export function AppView({
     previewTerminalTheme: string | null;
   };
   const { state: sidebarState } = useSidebar();
+  const embeddedInEdexShell = useEdexShellEmbeddedStage();
   const { theme: appTheme } = useTheme();
   const { t: translate } = useTranslation();
 
@@ -685,10 +701,12 @@ export function AppView({
       );
     };
 
+    const splitTree = renderNode(layout, "", 1, 1, true);
+    if (embeddedInEdexShell) {
+      return <EdexSplitWorkspace>{splitTree}</EdexSplitWorkspace>;
+    }
     return (
-      <div className="absolute inset-0 z-[10] pointer-events-none">
-        {renderNode(layout, "", 1, 1, true)}
-      </div>
+      <div className="absolute inset-0 z-[10] pointer-events-none">{splitTree}</div>
     );
   };
 
@@ -715,9 +733,14 @@ export function AppView({
   }
   const terminalBackgroundColor = containerThemeColors.background;
 
-  const topMarginPx = isTopbarOpen ? 74 : 26;
-  const leftMarginPx = sidebarState === "collapsed" ? 26 : 8;
-  const bottomMarginPx = 8;
+  const topMarginPx = embeddedInEdexShell ? 0 : isTopbarOpen ? 74 : 26;
+  const leftMarginPx = embeddedInEdexShell ? 0 : sidebarState === "collapsed" ? 26 : 8;
+  const bottomMarginPx = embeddedInEdexShell ? 0 : 8;
+  const rightChromePx = embeddedInEdexShell ? 0 : 8;
+  const rightEdgePx = embeddedInEdexShell ? 0 : 17;
+  const mainHeight = embeddedInEdexShell
+    ? `calc(100% - ${topMarginPx + bottomMarginPx}px)`
+    : `calc(100vh - ${topMarginPx + bottomMarginPx}px)`;
 
   let containerBackground = "var(--color-canvas)";
   if ((isFileManager || isTunnel || isDocker) && !isSplitScreen) {
@@ -729,16 +752,20 @@ export function AppView({
   return (
     <div
       ref={containerRef}
-      className="border-2 border-edge rounded-lg overflow-hidden overflow-x-hidden relative"
+      className={
+        embeddedInEdexShell
+          ? "appview-edex-stage border border-edge rounded-none overflow-hidden overflow-x-hidden relative h-full min-h-0"
+          : "border-2 border-edge rounded-lg overflow-hidden overflow-x-hidden relative"
+      }
       style={{
         background: containerBackground,
         marginLeft: leftMarginPx,
         marginRight: rightSidebarOpen
-          ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + 8px)`
-          : 17,
+          ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + ${rightChromePx}px)`
+          : rightEdgePx,
         marginTop: topMarginPx,
         marginBottom: bottomMarginPx,
-        height: `calc(100vh - ${topMarginPx + bottomMarginPx}px)`,
+        height: mainHeight,
         transition:
           "margin-left 200ms linear, margin-right 200ms linear, margin-top 200ms linear",
       }}

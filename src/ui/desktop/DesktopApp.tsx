@@ -28,6 +28,15 @@ import { useTheme } from "@/components/theme-provider";
 import { dbHealthMonitor } from "@/lib/db-health-monitor.ts";
 import { useTranslation } from "react-i18next";
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
+import { EdexShell } from "@/ui/desktop/apps/edex/EdexShell.tsx";
+import { EdexViteShellFrame } from "@/ui/desktop/apps/edex/EdexViteShellFrame.tsx";
+import { useEdexSettings } from "@/ui/desktop/apps/edex/edexSettings.ts";
+import {
+  applyEdexShellThemeVars,
+  clearEdexShellThemeVars,
+  resolveEdexShellSurface,
+} from "@/ui/desktop/apps/edex/edexThemeBridge.ts";
+import "@/ui/desktop/apps/edex/edexShellTheme.css";
 
 const Dashboard = lazy(() =>
   import("@/ui/desktop/apps/dashboard/Dashboard.tsx").then((module) => ({
@@ -58,7 +67,6 @@ const CommandPalette = lazy(() =>
     }),
   ),
 );
-
 function AppContent({
   onAuthStateChange,
 }: {
@@ -78,7 +86,9 @@ function AppContent({
     "idle" | "fadeOut" | "fadeIn"
   >("idle");
   const { currentTab, tabs, updateTab, addTab } = useTabs();
+  const { config: edexUiConfig } = useEdexSettings();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
   const { theme, setTheme } = useTheme();
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [rightSidebarWidth, setRightSidebarWidth] = useState(400);
@@ -93,6 +103,34 @@ function AppContent({
     (theme === "system" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
   const lineColor = isDarkMode ? "#151517" : "#f9f9f9";
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!isAuthenticated) {
+      clearEdexShellThemeVars(root);
+      root.removeAttribute("data-termix-shell");
+      return;
+    }
+    if (edexUiConfig.shellUi === "edex-vite") {
+      clearEdexShellThemeVars(root);
+      root.setAttribute("data-termix-shell", "edex-vite");
+      return () => {
+        clearEdexShellThemeVars(root);
+        root.removeAttribute("data-termix-shell");
+      };
+    }
+    if (edexUiConfig.shellUi === "edex") {
+      root.setAttribute("data-termix-shell", "edex");
+      const surface = resolveEdexShellSurface(edexUiConfig.theme, isDarkMode);
+      applyEdexShellThemeVars(root, edexUiConfig, surface);
+      return () => {
+        clearEdexShellThemeVars(root);
+        root.removeAttribute("data-termix-shell");
+      };
+    }
+    clearEdexShellThemeVars(root);
+    root.removeAttribute("data-termix-shell");
+  }, [isAuthenticated, edexUiConfig, isDarkMode]);
 
   const lastShiftPressTime = useRef(0);
 
@@ -371,6 +409,11 @@ function AppContent({
   const showSshManager = currentTabData?.type === "ssh_manager";
   const showAdmin = currentTabData?.type === "admin";
   const showProfile = currentTabData?.type === "user_profile";
+  const forceClassicUi = import.meta.env.VITE_TERMX_CLASSIC_UI === "1";
+  const useEdexViteShell =
+    !forceClassicUi && edexUiConfig.shellUi === "edex-vite";
+  const useIntegratedEdexShell =
+    !forceClassicUi && edexUiConfig.shellUi === "edex";
 
   if (authLoading) {
     return (
@@ -422,151 +465,181 @@ function AppContent({
         </div>
       )}
 
-      {isAuthenticated && (
-        <LeftSidebar
-          disabled={!isAuthenticated || authLoading}
-          isAdmin={isAdmin}
-          username={username}
-          onLogout={handleLogout}
-        >
-          <div
-            className="h-screen w-full visible pointer-events-auto static overflow-hidden"
-            style={{ display: showTerminalView ? "block" : "none" }}
-          >
-            <AppView
-              isTopbarOpen={isTopbarOpen}
-              rightSidebarOpen={rightSidebarOpen}
-              rightSidebarWidth={rightSidebarWidth}
-            />
-          </div>
-
-          {showHome && (
-            <div className="h-screen w-full visible pointer-events-auto static overflow-hidden">
-              <Suspense
-                fallback={
-                  <div
-                    className="bg-canvas rounded-lg border-2 border-edge relative"
-                    style={{
-                      margin: "74px 17px 8px 8px",
-                      height: "calc(100vh - 82px)",
-                    }}
-                  >
-                    <SimpleLoader
-                      visible={true}
-                      message={t("common.loading")}
-                    />
-                  </div>
-                }
-              >
-                <Dashboard
-                  isAuthenticated={isAuthenticated}
-                  authLoading={authLoading}
-                  onAuthSuccess={handleAuthSuccess}
-                  isTopbarOpen={isTopbarOpen}
-                  rightSidebarOpen={rightSidebarOpen}
-                  rightSidebarWidth={rightSidebarWidth}
-                />
-              </Suspense>
-            </div>
-          )}
-
-          {showSshManager && (
-            <div className="h-screen w-full visible pointer-events-auto static overflow-hidden">
-              <Suspense
-                fallback={
-                  <div
-                    className="bg-canvas rounded-lg border-2 border-edge relative"
-                    style={{
-                      margin: "74px 17px 8px 8px",
-                      height: "calc(100vh - 82px)",
-                    }}
-                  >
-                    <SimpleLoader
-                      visible={true}
-                      message={t("common.loading")}
-                    />
-                  </div>
-                }
-              >
-                <HostManager
-                  isTopbarOpen={isTopbarOpen}
-                  initialTab={currentTabData?.initialTab}
-                  hostConfig={currentTabData?.hostConfig}
-                  _updateTimestamp={currentTabData?._updateTimestamp}
-                  rightSidebarOpen={rightSidebarOpen}
-                  rightSidebarWidth={rightSidebarWidth}
-                  currentTabId={currentTab}
-                  updateTab={updateTab}
-                />
-              </Suspense>
-            </div>
-          )}
-
-          {showAdmin && (
-            <div className="h-screen w-full visible pointer-events-auto static overflow-hidden">
-              <Suspense
-                fallback={
-                  <div
-                    className="bg-canvas rounded-lg border-2 border-edge relative"
-                    style={{
-                      margin: "74px 17px 8px 8px",
-                      height: "calc(100vh - 82px)",
-                    }}
-                  >
-                    <SimpleLoader
-                      visible={true}
-                      message={t("common.loading")}
-                    />
-                  </div>
-                }
-              >
-                <AdminSettings
-                  isTopbarOpen={isTopbarOpen}
-                  rightSidebarOpen={rightSidebarOpen}
-                  rightSidebarWidth={rightSidebarWidth}
-                />
-              </Suspense>
-            </div>
-          )}
-
-          {showProfile && (
-            <div className="h-screen w-full visible pointer-events-auto static overflow-auto thin-scrollbar">
-              <Suspense
-                fallback={
-                  <div
-                    className="bg-canvas rounded-lg border-2 border-edge relative"
-                    style={{
-                      margin: "74px 17px 8px 8px",
-                      height: "calc(100vh - 82px)",
-                    }}
-                  >
-                    <SimpleLoader
-                      visible={true}
-                      message={t("common.loading")}
-                    />
-                  </div>
-                }
-              >
-                <UserProfile
-                  isTopbarOpen={isTopbarOpen}
-                  rightSidebarOpen={rightSidebarOpen}
-                  rightSidebarWidth={rightSidebarWidth}
-                  initialTab={currentTabData?.initialTab}
-                />
-              </Suspense>
-            </div>
-          )}
-
-          <TopNavbar
+      {isAuthenticated &&
+        (useEdexViteShell ? (
+          <EdexViteShellFrame
+            username={username}
+            isAdmin={isAdmin}
+            isTopbarOpen={isTopbarOpen}
+            rightSidebarOpen={rightSidebarOpen}
+            rightSidebarWidth={rightSidebarWidth}
+            onLogout={handleLogout}
+            onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          />
+        ) : useIntegratedEdexShell ? (
+          <EdexShell
             isTopbarOpen={isTopbarOpen}
             setIsTopbarOpen={setIsTopbarOpen}
+            rightSidebarOpen={rightSidebarOpen}
+            rightSidebarWidth={rightSidebarWidth}
             onRightSidebarStateChange={(isOpen, width) => {
               setRightSidebarOpen(isOpen);
               setRightSidebarWidth(width);
             }}
+            isAdmin={isAdmin}
+            username={username}
+            onLogout={handleLogout}
+            stageAuth={{
+              isAuthenticated,
+              authLoading,
+              onAuthSuccess: handleAuthSuccess,
+            }}
           />
-        </LeftSidebar>
-      )}
+        ) : (
+          <LeftSidebar
+            disabled={!isAuthenticated || authLoading}
+            isAdmin={isAdmin}
+            username={username}
+            onLogout={handleLogout}
+          >
+            <div
+              className="h-screen w-full visible pointer-events-auto static overflow-hidden"
+              style={{ display: showTerminalView ? "block" : "none" }}
+            >
+              <AppView
+                isTopbarOpen={isTopbarOpen}
+                rightSidebarOpen={rightSidebarOpen}
+                rightSidebarWidth={rightSidebarWidth}
+              />
+            </div>
+
+            {showHome && (
+              <div className="h-screen w-full visible pointer-events-auto static overflow-hidden">
+                <Suspense
+                  fallback={
+                    <div
+                      className="bg-canvas rounded-lg border-2 border-edge relative"
+                      style={{
+                        margin: "74px 17px 8px 8px",
+                        height: "calc(100vh - 82px)",
+                      }}
+                    >
+                      <SimpleLoader
+                        visible={true}
+                        message={t("common.loading")}
+                      />
+                    </div>
+                  }
+                >
+                  <Dashboard
+                    isAuthenticated={isAuthenticated}
+                    authLoading={authLoading}
+                    onAuthSuccess={handleAuthSuccess}
+                    isTopbarOpen={isTopbarOpen}
+                    rightSidebarOpen={rightSidebarOpen}
+                    rightSidebarWidth={rightSidebarWidth}
+                  />
+                </Suspense>
+              </div>
+            )}
+
+            {showSshManager && (
+              <div className="h-screen w-full visible pointer-events-auto static overflow-hidden">
+                <Suspense
+                  fallback={
+                    <div
+                      className="bg-canvas rounded-lg border-2 border-edge relative"
+                      style={{
+                        margin: "74px 17px 8px 8px",
+                        height: "calc(100vh - 82px)",
+                      }}
+                    >
+                      <SimpleLoader
+                        visible={true}
+                        message={t("common.loading")}
+                      />
+                    </div>
+                  }
+                >
+                  <HostManager
+                    isTopbarOpen={isTopbarOpen}
+                    initialTab={currentTabData?.initialTab}
+                    hostConfig={currentTabData?.hostConfig}
+                    _updateTimestamp={currentTabData?._updateTimestamp}
+                    rightSidebarOpen={rightSidebarOpen}
+                    rightSidebarWidth={rightSidebarWidth}
+                    currentTabId={currentTab}
+                    updateTab={updateTab}
+                  />
+                </Suspense>
+              </div>
+            )}
+
+            {showAdmin && (
+              <div className="h-screen w-full visible pointer-events-auto static overflow-hidden">
+                <Suspense
+                  fallback={
+                    <div
+                      className="bg-canvas rounded-lg border-2 border-edge relative"
+                      style={{
+                        margin: "74px 17px 8px 8px",
+                        height: "calc(100vh - 82px)",
+                      }}
+                    >
+                      <SimpleLoader
+                        visible={true}
+                        message={t("common.loading")}
+                      />
+                    </div>
+                  }
+                >
+                  <AdminSettings
+                    isTopbarOpen={isTopbarOpen}
+                    rightSidebarOpen={rightSidebarOpen}
+                    rightSidebarWidth={rightSidebarWidth}
+                  />
+                </Suspense>
+              </div>
+            )}
+
+            {showProfile && (
+              <div className="h-screen w-full visible pointer-events-auto overflow-auto thin-scrollbar">
+                <Suspense
+                  fallback={
+                    <div
+                      className="bg-canvas rounded-lg border-2 border-edge relative"
+                      style={{
+                        margin: "74px 17px 8px 8px",
+                        height: "calc(100vh - 82px)",
+                      }}
+                    >
+                      <SimpleLoader
+                        visible={true}
+                        message={t("common.loading")}
+                      />
+                    </div>
+                  }
+                >
+                  <UserProfile
+                    isTopbarOpen={isTopbarOpen}
+                    rightSidebarOpen={rightSidebarOpen}
+                    rightSidebarWidth={rightSidebarWidth}
+                    initialTab={currentTabData?.initialTab}
+                  />
+                </Suspense>
+              </div>
+            )}
+
+            <TopNavbar
+              isTopbarOpen={isTopbarOpen}
+              setIsTopbarOpen={setIsTopbarOpen}
+              onRightSidebarStateChange={(isOpen, width) => {
+                setRightSidebarOpen(isOpen);
+                setRightSidebarWidth(width);
+              }}
+            />
+          </LeftSidebar>
+        ))}
 
       {isTransitioning && (
         <div

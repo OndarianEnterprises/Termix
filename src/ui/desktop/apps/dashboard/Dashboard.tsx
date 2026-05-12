@@ -21,6 +21,7 @@ import {
   type RecentActivityItem,
 } from "@/ui/main-axios.ts";
 import { useSidebar } from "@/components/ui/sidebar.tsx";
+import { useEdexShellEmbeddedStage } from "@/ui/desktop/apps/edex/edexShellFrameContext.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
 import { useTabs } from "@/ui/desktop/navigation/tabs/TabContext.tsx";
 import { Kbd } from "@/components/ui/kbd";
@@ -109,10 +110,15 @@ export function Dashboard({
     // Sidebar context is not available on every dashboard mount path.
   }
 
-  const topMarginPx = isTopbarOpen ? 74 : 26;
-  const leftMarginPx = sidebarState === "collapsed" ? 26 : 8;
-  const rightMarginPx = 17;
-  const bottomMarginPx = 8;
+  const embeddedInEdexShell = useEdexShellEmbeddedStage();
+  const topMarginPx = embeddedInEdexShell ? 0 : isTopbarOpen ? 74 : 26;
+  const leftMarginPx = embeddedInEdexShell ? 0 : sidebarState === "collapsed" ? 26 : 8;
+  const rightMarginPx = embeddedInEdexShell ? 0 : 17;
+  const bottomMarginPx = embeddedInEdexShell ? 0 : 8;
+  const rightChromePx = embeddedInEdexShell ? 0 : 8;
+  const dashboardMainHeight = embeddedInEdexShell
+    ? `calc(100% - ${topMarginPx + bottomMarginPx}px)`
+    : `calc(100vh - ${topMarginPx + bottomMarginPx}px)`;
 
   useEffect(() => {
     setLoggedIn(isAuthenticated);
@@ -605,15 +611,19 @@ export function Dashboard({
         </div>
       ) : (
         <div
-          className="bg-canvas text-foreground rounded-lg border-2 border-edge overflow-hidden flex min-w-0"
+          className={
+            embeddedInEdexShell
+              ? "bg-canvas text-foreground rounded-none border border-edge overflow-hidden flex min-w-0 h-full"
+              : "bg-canvas text-foreground rounded-lg border-2 border-edge overflow-hidden flex min-w-0"
+          }
           style={{
             marginLeft: leftMarginPx,
             marginRight: rightSidebarOpen
-              ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + 8px)`
+              ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + ${rightChromePx}px)`
               : rightMarginPx,
             marginTop: topMarginPx,
             marginBottom: bottomMarginPx,
-            height: `calc(100vh - ${topMarginPx + bottomMarginPx}px)`,
+            height: dashboardMainHeight,
             transition:
               "margin-left 200ms linear, margin-right 200ms linear, margin-top 200ms linear",
           }}

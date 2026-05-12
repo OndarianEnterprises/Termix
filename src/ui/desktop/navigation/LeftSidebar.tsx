@@ -3,6 +3,8 @@ import {
   ChevronUp,
   User2,
   HardDrive,
+  Layers,
+  MonitorCog,
   Menu,
   ChevronRight,
   RotateCcw,
@@ -37,6 +39,7 @@ import { FolderCard } from "@/ui/desktop/navigation/hosts/FolderCard.tsx";
 import { getSSHHosts, getSSHFolders } from "@/ui/main-axios.ts";
 import { useTabs } from "@/ui/desktop/navigation/tabs/TabContext.tsx";
 import type { SSHFolder, SSHHost } from "@/types/index.ts";
+import { useEdexSettings } from "@/ui/desktop/apps/edex/edexSettings.ts";
 
 interface SidebarProps {
   disabled?: boolean;
@@ -71,17 +74,9 @@ export function LeftSidebar({
     return saved !== null ? JSON.parse(saved) : true;
   });
 
-  const {
-    tabs: tabList,
-    addTab,
-    setCurrentTab,
-    allSplitScreenTab,
-  } = useTabs() as {
-    tabs: Array<{ id: number; type: string; [key: string]: unknown }>;
-    addTab: (tab: { type: string; [key: string]: unknown }) => number;
-    setCurrentTab: (id: number) => void;
-    allSplitScreenTab: number[];
-  };
+  const { tabs: tabList, currentTab, addTab, setCurrentTab, allSplitScreenTab } =
+    useTabs();
+  const { updateConfig } = useEdexSettings();
   const isSplitScreenActive =
     Array.isArray(allSplitScreenTab) && allSplitScreenTab.length > 0;
   const sshManagerTab = tabList.find((t) => t.type === "ssh_manager");
@@ -113,6 +108,14 @@ export function LeftSidebar({
     }
     const id = addTab({ type: "user_profile" });
     setCurrentTab(id);
+  };
+  const openEdexShell = () => {
+    if (isSplitScreenActive) return;
+    updateConfig({ shellUi: "edex" });
+  };
+  const openEdexViteShell = () => {
+    if (isSplitScreenActive) return;
+    updateConfig({ shellUi: "edex-vite" });
   };
 
   const [hosts, setHosts] = useState<SSHHost[]>([]);
@@ -490,6 +493,34 @@ export function LeftSidebar({
                 >
                   <HardDrive strokeWidth="2.5" />
                   {t("nav.hostManager")}
+                </Button>
+                <Button
+                  className="mx-2 mb-2 flex flex-row font-semibold border-2 !border-edge"
+                  variant="outline"
+                  onClick={openEdexShell}
+                  disabled={isSplitScreenActive}
+                  title={
+                    isSplitScreenActive
+                      ? t("interface.disabledDuringSplitScreen")
+                      : undefined
+                  }
+                >
+                  <MonitorCog strokeWidth="2.5" />
+                  eDEX UI
+                </Button>
+                <Button
+                  className="mx-2 mb-2 flex flex-row font-semibold border-2 !border-edge"
+                  variant="outline"
+                  onClick={openEdexViteShell}
+                  disabled={isSplitScreenActive}
+                  title={
+                    isSplitScreenActive
+                      ? t("interface.disabledDuringSplitScreen")
+                      : "Phase A standalone shell (requires public/edex-assets — npm run sync-edex-vite-public)"
+                  }
+                >
+                  <Layers strokeWidth="2.5" />
+                  eDEX Vite
                 </Button>
               </SidebarGroup>
               <Separator className="p-0.25" />

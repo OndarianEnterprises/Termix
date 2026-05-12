@@ -1,0 +1,32 @@
+/**
+ * eDEX upstream loads many CSS files in a fixed order (`src/ui.html`).
+ * Requires `npm run sync-edex-assets` so `public/edex-assets/` exists under this package.
+ * Imports use paths relative to this file so the same sheet bundles inside the main Termix Vite app.
+ */
+@import "augmented-ui/augmented.css";
+
+@import "../../public/edex-assets/css/main.css";
+@import "../../public/edex-assets/css/modal.css";
+@import "../../public/edex-assets/css/boot_screen.css";
+@import "../../public/edex-assets/css/main_shell.css";
+@import "../../public/edex-assets/css/filesystem.css";
+@import "../../public/edex-assets/css/keyboard.css";
+@import "../../public/edex-assets/css/mod_column.css";
+@import "../../public/edex-assets/css/shell_grid.css";
+@import "../../public/edex-assets/css/mod_clock.css";
+@import "../../public/edex-assets/css/mod_sysinfo.css";
+@import "../../public/edex-assets/css/mod_hardwareInspector.css";
+@import "../../public/edex-assets/css/mod_cpuinfo.css";
+@import "../../public/edex-assets/css/mod_netstat.css";
+@import "../../public/edex-assets/css/mod_conninfo.css";
+@import "../../public/edex-assets/css/mod_globe.css";
+@import "../../public/edex-assets/css/mod_ramwatcher.css";
+@import "../../public/edex-assets/css/mod_toplist.css";
+@import "../../public/edex-assets/css/mod_fuzzyFinder.css";
+@import "../../public/edex-assets/css/mod_processlist.css";
+@import "../../public/edex-assets/css/extra_ratios.css";
+
+.edex-vite-shell-body {
+  margin: 0;
+  min-height: 100vh;
+}

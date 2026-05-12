@@ -2,6 +2,9 @@
   "name": "termix",
   "private": true,
   "version": "2.2.0",
+  "workspaces": [
+    "packages/edex-vite-shell"
+  ],
   "description": "A web-based server management platform with SSH terminal, tunneling, and file editing capabilities",
   "author": "Karmaa",
   "main": "electron/main.cjs",
@@ -18,6 +21,16 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "type-check": "tsc --noEmit",
+    "merge-edex-locales": "node scripts/merge-edex-locales.mjs",
+    "sync-edex-assets": "node scripts/sync-edex-ui-assets.mjs",
+    "sync-edex-vite-public": "node scripts/sync-edex-vite-shell-public.mjs",
+    "edex:vite:dev": "npm run dev --workspace=@termix/edex-vite-shell",
+    "edex:vite:build": "npm run build --workspace=@termix/edex-vite-shell",
+    "edex:vite:preview": "npm run preview --workspace=@termix/edex-vite-shell",
+    "edex:vite:typecheck": "npm run typecheck --workspace=@termix/edex-vite-shell",
+    "edex:vite:lint": "eslint \"packages/edex-vite-shell/**/*.{ts,tsx}\"",
+    "edex:vite:verify": "npm run edex:vite:typecheck && npm run edex:vite:build && node scripts/edex-vite-verify-bundle.mjs",
+    "edex:vite:e2e": "npm run e2e --workspace=@termix/edex-vite-shell",
     "dev": "vite",
     "build": "vite build && tsc -p tsconfig.node.json",
     "build:backend": "tsc -p tsconfig.node.json",
@@ -38,6 +51,7 @@
     "build:mac-dev": "npm run build && npm run electron:rebuild && npm run electron:patch-builder && electron-builder --mac dir --publish=never"
   },
   "dependencies": {
+    "@termix/edex-vite-shell": "workspace:*",
     "axios": "^1.15.2",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.9.0",

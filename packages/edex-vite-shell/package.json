@@ -1,0 +1,38 @@
+{
+  "name": "@termix/edex-vite-shell",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Phase A: eDEX-UI-derived shell in Vite (no Electron). See docs/superpowers/plans/2026-05-12-termix-edex-ui-vite-frontend-replacement-plan.md",
+  "exports": {
+    "./app": "./src/App.tsx",
+    "./bridge": "./src/context/EdexTermixBridgeContext.tsx",
+    "./host": "./src/context/EdexTermixHostContext.tsx",
+    "./mapTermixMetrics": "./src/utils/mapTermixMetricsToRemoteSnapshot.ts",
+    "./contracts/hostMetrics": "./src/contracts/hostMetrics.ts"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "augmented-ui": "^1.1.2",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.10"
+  }
+}

@@ -52,6 +52,7 @@ import {
 import { ConnectionLog } from "@/ui/desktop/navigation/connection-log/ConnectionLog.tsx";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils.ts";
 
 interface HostConfig {
   id?: number;
@@ -95,6 +96,8 @@ interface SSHTerminalProps {
   executeCommand?: string;
   onOpenFileManager?: (path?: string) => void;
   previewTheme?: string | null;
+  /** Panel embedding: eDEX shell uses `"edex"` to align with scoped module chrome. */
+  chromeAppearance?: "termix" | "edex";
 }
 
 const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
@@ -108,6 +111,7 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
       executeCommand,
       onOpenFileManager,
       previewTheme,
+      chromeAppearance = "termix",
     },
     ref,
   ) {
@@ -2460,7 +2464,13 @@ const TerminalInner = forwardRef<TerminalHandle, SSHTerminalProps>(
     const hasConnectionError = !!connectionError;
 
     return (
-      <div className="h-full w-full relative" style={{ backgroundColor }}>
+      <div
+        className={cn(
+          "h-full w-full relative",
+          chromeAppearance === "edex" && "termix-terminal-chrome--edex",
+        )}
+        style={{ backgroundColor }}
+      >
         <div
           ref={xtermRef}
           className="h-full w-full"

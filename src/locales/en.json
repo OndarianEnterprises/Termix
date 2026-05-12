@@ -566,7 +566,8 @@
     "sudoPasswordCopied": "Sudo password copied to clipboard",
     "noPasswordAvailable": "No password available",
     "failedToCopyPassword": "Failed to copy password",
-    "openFileManager": "Open File Manager"
+    "openFileManager": "Open File Manager",
+    "commandPalette": "Command palette"
   },
   "admin": {
     "title": "Admin Settings",
@@ -2508,7 +2509,15 @@
     "enableCommandPaletteShortcut": "Enable Command Palette Shortcut",
     "enableCommandPaletteShortcutDesc": "Double-tap left Shift to open the Command Palette for quick access to hosts",
     "enableTerminalSessionPersistence": "Persistent Tabs/Sessions",
-    "enableTerminalSessionPersistenceDesc": "Maintain SSH connections when switching tabs or closing the browser (may be unstable)"
+    "enableTerminalSessionPersistenceDesc": "Maintain SSH connections when switching tabs or closing the browser (may be unstable)",
+    "edexDesktopShellSection": "Desktop shell",
+    "edexDesktopShellToggle": "eDEX-style desktop",
+    "edexDesktopShellToggleDesc": "Replace the classic Termix layout with a full-screen eDEX workspace. You can return to classic here or from the shell.",
+    "edexDesktopShellForcedClassic": "This build is locked to classic desktop (VITE_TERMX_CLASSIC_UI).",
+    "edexShellVariant": "eDEX shell variant",
+    "edexShellVariantDesc": "Integrated uses the in-app eDEX layout. Vite shell loads the experimental embedded package.",
+    "edexShellVariantIntegrated": "Integrated",
+    "edexShellVariantVite": "Vite (embedded)"
   },
   "user": {
     "failedToLoadVersionInfo": "Failed to load version information"
@@ -3151,6 +3160,70 @@
       "connected": "SFTP connection established",
       "authFailed": "Authentication failed",
       "error": "SFTP operation failed: {{error}}"
+    }
+  },
+  "edex": {
+    "bootSplash": {
+      "brand": "TERMIX",
+      "title": "EDEX INTERFACE",
+      "hint": "Initializing workspace chrome. Press Escape or Skip to continue.",
+      "skip": "Skip",
+      "progressLabel": "Boot sequence progress"
+    },
+    "bootQuips": [
+      "Handshake with the void returned 200 OK.",
+      "Telemetry hardened. Creativity left unpatched.",
+      "Routing packet poetry through quiet circuits.",
+      "Spectral analysis suggests your terminal is listening.",
+      "Calibration complete: cynicism damped, curiosity boosted."
+    ],
+    "systemMenu": {
+      "trigger": "SYSTEM",
+      "triggerTitle": "System routing (profile, hosts, admin)",
+      "section": "// ROUTING",
+      "profile": "// USER.PROFILE",
+      "admin": "// ADMIN.SOCKET",
+      "hostsOverlay": "// HOST.OVERLAY",
+      "hostMatrix": "// HOST.MATRIX"
+    },
+    "keyboardHud": {
+      "shortcutsLegend": "SHIFT x2: palette | ALT x2: theme"
+    },
+    "viteShell": {
+      "noRemoteSession": "Open an RDP, VNC, or Telnet tab first (from Hosts), then try again.",
+      "remoteSession": "Remote session",
+      "hostsPanelTitle": "HOSTS",
+      "hostsPanelEmpty": "No saved hosts yet. Use Manage to add SSH or remote desktops.",
+      "hostsPanelManage": "Manage hosts",
+      "hostsPanelRefresh": "Refresh",
+      "hostTerminalDisabled": "Terminal is disabled for this host in Host Manager.",
+      "hostListLoadFailed": "Could not load the host list.",
+      "remoteConnectFailed": "Could not start the remote session."
+    },
+    "shellSettings": {
+      "trigger": "Shell options",
+      "menuTitle": "eDEX shell",
+      "workspaceLayout": "Workspace layout (panels)",
+      "keyboardHud": "Keyboard HUD",
+      "globe": "Globe backdrop",
+      "globeMarkers": "Globe host markers",
+      "bootSplash": "Boot splash",
+      "bootOncePerSession": "Skip boot after first time (this tab)",
+      "bootSound": "Boot splash chime",
+      "bootQuips": "Boot splash quips",
+      "bootSoundVolume": "Chime volume",
+      "bootSoundVolumeA11y": "Boot splash chime volume",
+      "showFiles": "File panel",
+      "showStats": "Stats panel",
+      "themeImportSection": "Theme import",
+      "themePasteFromClipboard": "Paste eDEX theme JSON (clipboard)",
+      "themeClearImport": "Clear imported theme",
+      "themePasteSuccess": "Theme import saved",
+      "themeClearSuccess": "Imported theme cleared",
+      "themePasteEmpty": "Clipboard was empty",
+      "themePasteInvalidJson": "Clipboard is not valid JSON",
+      "themePasteNoColors": "JSON has no supported `colors` keys for the shell",
+      "themePasteClipboardDenied": "Could not read clipboard (permission or context)"
     }
   },
   "theme": {
