@@ -20,8 +20,12 @@ COPY . .
 
 RUN find public/fonts -name "*.ttf" ! -name "*Regular.ttf" ! -name "*Bold.ttf" ! -name "*Italic.ttf" -delete
 
+RUN node scripts/sync-edex-vite-shell-public.mjs
+
 RUN npm cache clean --force && \
-    NODE_OPTIONS="--max-old-space-size=3072" npm run build
+    NODE_OPTIONS="--max-old-space-size=3072" npm run build && \
+    test -f dist/edex-assets/vendor/encom-globe.js && \
+    test -f dist/edex-assets/misc/grid.json
 
 # Stage 3: Build backend
 FROM deps AS backend-builder

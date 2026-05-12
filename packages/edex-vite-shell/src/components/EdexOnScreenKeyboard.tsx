@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { KeyboardLayoutDocument } from "../contracts/keyboardLayout";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
+import { edexAssetsUrl } from "../utils/edexAssetsUrl";
 
 /** Matches `keyboard.class.js` `this.ctrlseq` (index 1..length-1 used for `~~~CTRLSEQn~~~`). */
 const CTRLSEQ = [
@@ -298,7 +299,7 @@ export function EdexOnScreenKeyboard({
     void (async () => {
       try {
         const res = await fetch(
-          `/edex-assets/kb_layouts/${encodeURIComponent(layoutId)}.json`,
+          edexAssetsUrl(`kb_layouts/${encodeURIComponent(layoutId)}.json`),
         );
         if (!res.ok) {
           throw new Error(`${res.status} ${res.statusText}`);

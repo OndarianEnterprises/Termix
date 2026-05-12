@@ -1,3 +1,5 @@
+import { edexAssetsUrl } from "../utils/edexAssetsUrl";
+
 /**
  * Loads upstream `encom-globe.js` (browserify bundle) once; exposes `window.ENCOM.Globe`.
  */
@@ -34,7 +36,7 @@ export function loadEncomGlobeScript(): Promise<void> {
 
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = "/edex-assets/vendor/encom-globe.js";
+    s.src = edexAssetsUrl("vendor/encom-globe.js");
     s.async = true;
     s.dataset.edexEncomGlobe = "1";
     s.onload = () => resolve();

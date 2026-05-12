@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EdexThemeRgb } from "../theme/loadEdexTheme";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
+import { edexAssetsUrl } from "../utils/edexAssetsUrl";
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -34,7 +35,7 @@ export function EdexBootSequence({ themeRgb, onDone }: EdexBootSequenceProps) {
       const fullBoot = import.meta.env.VITE_EDEX_BOOT_FULL === "1";
       let bootLines: string[] = [];
       try {
-        const res = await fetch("/edex-assets/misc/boot_log.txt");
+        const res = await fetch(edexAssetsUrl("misc/boot_log.txt"));
         if (res.ok) {
           const text = await res.text();
           bootLines = text.split("\n").filter((l) => l.length > 0);

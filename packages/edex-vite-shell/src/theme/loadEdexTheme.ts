@@ -1,3 +1,5 @@
+import { edexAssetsUrl } from "../utils/edexAssetsUrl";
+
 export interface EdexThemeRgb {
   r: number;
   g: number;
@@ -86,7 +88,7 @@ function buildGlobeColors(theme: EdexThemeJson, rgb: EdexThemeRgb): EdexGlobeThe
  * injects `:root` variables expected by upstream `main.css` / `boot_screen.css`.
  */
 export async function loadEdexTheme(
-  themePath = "/edex-assets/themes/tron.json",
+  themePath = edexAssetsUrl("themes/tron.json"),
 ): Promise<EdexLoadedTheme> {
   let theme: EdexThemeJson;
   try {
@@ -108,7 +110,7 @@ export async function loadEdexTheme(
   const { colors, cssvars, terminal } = theme;
   const rgb = { r: colors.r, g: colors.g, b: colors.b };
 
-  const fontBase = "/edex-assets/fonts";
+  const fontBase = edexAssetsUrl("fonts");
   const fontFile = (name: string) =>
     `${fontBase}/${name.toLowerCase().replace(/ /g, "_")}.woff2`;
 

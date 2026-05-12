@@ -8,6 +8,7 @@ import {
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 import { useEdexTermixHost } from "../context/EdexTermixHostContext";
 import { approximateGeoFromIPv4 } from "../utils/approximateGeoFromIp";
+import { edexAssetsUrl } from "../utils/edexAssetsUrl";
 
 export interface EdexGlobeModuleProps {
   fontMain: string;
@@ -168,7 +169,7 @@ export function EdexGlobeModule({
           await loadEncomGlobeScript();
           if (cancelled) return;
 
-          const gridRes = await fetch("/edex-assets/misc/grid.json");
+          const gridRes = await fetch(edexAssetsUrl("misc/grid.json"));
           if (!gridRes.ok) throw new Error(`grid.json ${gridRes.status}`);
           const geodata = (await gridRes.json()) as { tiles: unknown[] };
           if (cancelled) return;
