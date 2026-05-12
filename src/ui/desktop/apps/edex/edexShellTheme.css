@@ -1,0 +1,331 @@
+/**
+ * Full-screen eDEX shell chrome. Loaded from DesktopApp when eDEX shell is used.
+ * Pairs with `document.documentElement[data-termix-shell="edex"]` and runtime
+ * tokens from `edexThemeBridge.applyEdexShellThemeVars`.
+ * Optional `--edex-shell-theme-*` vars come from pasted upstream theme JSON (`ui.edex.shellThemeImportJson`).
+ */
+
+html[data-termix-shell="edex"]:not(.light) {
+  /* Slight cyan cast on chrome tokens; keeps theme-specific .dark palettes readable */
+  --border-base: color-mix(
+    in srgb,
+    var(--border-base) 72%,
+    rgb(var(--edex-shell-neon-rgb)) 28%
+  );
+}
+
+html[data-termix-shell="edex"].light {
+  --border-base: color-mix(
+    in srgb,
+    var(--border-base) 82%,
+    rgb(var(--edex-shell-neon-rgb)) 18%
+  );
+}
+
+.edex-app-shell {
+  font-family: var(
+    --edex-shell-ui-font,
+    ui-sans-serif,
+    system-ui,
+    sans-serif
+  );
+  /* Optional `--edex-shell-theme-background` from pasted upstream theme JSON */
+  background-color: var(--edex-shell-theme-background, #04080c);
+  background-image:
+    radial-gradient(
+      900px 520px at 50% -8%,
+      rgb(var(--edex-shell-neon-rgb) / var(--edex-shell-radial-alpha)),
+      transparent 58%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 22px,
+      rgb(var(--edex-shell-neon-rgb) / var(--edex-shell-grid-alpha)) 22px,
+      rgb(var(--edex-shell-neon-rgb) / var(--edex-shell-grid-alpha)) 23px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 22px,
+      rgb(var(--edex-shell-neon-rgb) / var(--edex-shell-grid-alpha)) 22px,
+      rgb(var(--edex-shell-neon-rgb) / var(--edex-shell-grid-alpha)) 23px
+    );
+  box-shadow: inset 0 0 0 1px
+    rgb(var(--edex-shell-neon-rgb) / var(--edex-shell-frame-alpha));
+}
+
+.edex-app-shell__header {
+  background: linear-gradient(
+    90deg,
+    color-mix(
+      in srgb,
+      var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 12%,
+      transparent
+    ),
+    rgba(5, 8, 12, 0.55)
+  );
+  border-bottom-color: color-mix(
+      in srgb,
+      var(--edex-shell-theme-border, rgb(var(--edex-shell-neon-rgb))) 35%,
+      transparent
+    )
+    !important;
+  box-shadow: 0 0 18px
+    color-mix(
+      in srgb,
+      var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 8%,
+      transparent
+    );
+}
+
+.edex-app-shell__header .font-mono {
+  text-shadow: 0 0 12px
+    color-mix(
+      in srgb,
+      var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 25%,
+      transparent
+    );
+}
+
+.termix-top-navbar--edex {
+  background: linear-gradient(
+    180deg,
+    color-mix(
+      in srgb,
+      var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 16%,
+      transparent
+    ),
+    rgba(5, 8, 12, 0.94)
+  ) !important;
+  border-color: color-mix(
+      in srgb,
+      var(--edex-shell-theme-border, rgb(var(--edex-shell-neon-rgb))) 45%,
+      transparent
+    )
+    !important;
+  box-shadow:
+    0 0 22px
+      color-mix(
+        in srgb,
+        var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 12%,
+        transparent
+      ),
+    inset 0 0 0 1px
+      color-mix(
+        in srgb,
+        var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 20%,
+        transparent
+      );
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.termix-top-navbar--edex .border-edge,
+.termix-top-navbar--edex.border-edge {
+  border-color: color-mix(
+      in srgb,
+      var(--edex-shell-theme-border, rgb(var(--edex-shell-neon-rgb))) 28%,
+      transparent
+    )
+    !important;
+}
+
+.termix-top-navbar-strip--edex {
+  background: linear-gradient(
+    180deg,
+    color-mix(
+      in srgb,
+      var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 12%,
+      transparent
+    ),
+    rgba(5, 8, 12, 0.92)
+  ) !important;
+  border: 2px solid
+    color-mix(
+      in srgb,
+      var(--edex-shell-theme-border, rgb(var(--edex-shell-neon-rgb))) 40%,
+      transparent
+    )
+    !important;
+  border-top: none !important;
+}
+
+@keyframes edex-shell-intro-gate {
+  from {
+    opacity: 0;
+    filter: brightness(1.35) saturate(1.08);
+  }
+  to {
+    opacity: 1;
+    filter: brightness(1) saturate(1);
+  }
+}
+
+.edex-shell--intro.edex-app-shell {
+  animation: edex-shell-intro-gate 0.38s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-termix-shell="edex"] .edex-shell--intro.edex-app-shell {
+    animation: none;
+    opacity: 1;
+    filter: none;
+  }
+
+  html[data-termix-shell="edex"] .termix-top-navbar--edex,
+  html[data-termix-shell="edex"] .edex-app-shell__header {
+    transition: none !important;
+  }
+
+  html[data-termix-shell="edex"] .edex-globe-backdrop__shell {
+    animation: none !important;
+  }
+}
+
+.edex-globe-backdrop__shell {
+  position: absolute;
+  bottom: -18%;
+  right: -8%;
+  width: min(480px, 52vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  opacity: 0.42;
+}
+
+.edex-globe-backdrop__orb {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  --edex-globe-tint: var(
+    --edex-shell-theme-accent,
+    rgb(var(--edex-shell-neon-rgb))
+  );
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      color-mix(in srgb, var(--edex-globe-tint) 35%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 70% 62%,
+      color-mix(in srgb, var(--edex-globe-tint) 12%, transparent),
+      transparent 50%
+    ),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--edex-globe-tint) 8%, transparent),
+      transparent 60%
+    );
+  box-shadow:
+    inset 0 0 60px color-mix(in srgb, var(--edex-globe-tint) 15%, transparent),
+    0 0 80px color-mix(in srgb, var(--edex-globe-tint) 12%, transparent);
+}
+
+.edex-globe-marker {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  --edex-globe-tint: var(
+    --edex-shell-theme-accent,
+    rgb(var(--edex-shell-neon-rgb))
+  );
+  box-shadow: 0 0 6px color-mix(in srgb, var(--edex-globe-tint) 55%, transparent);
+  background: color-mix(in srgb, var(--edex-globe-tint) 85%, transparent);
+  /* Decorative: do not steal taps from the workspace (touch + mouse). */
+  pointer-events: none;
+}
+
+.edex-globe-marker--online {
+  background: rgb(34 197 94 / 0.95);
+  box-shadow: 0 0 8px rgb(34 197 94 / 0.55);
+}
+
+.edex-globe-marker--offline {
+  background: rgb(248 113 113 / 0.9);
+  box-shadow: 0 0 8px rgb(248 113 113 / 0.45);
+}
+
+.edex-globe-marker--unknown {
+  background: color-mix(
+    in srgb,
+    var(--edex-globe-tint, rgb(var(--edex-shell-neon-rgb))) 75%,
+    transparent
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .edex-globe-backdrop__shell {
+    animation: edex-globe-drift 48s linear infinite;
+  }
+}
+
+@keyframes edex-globe-drift {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.edex-boot-splash {
+  background: color-mix(in srgb, #020508 92%, transparent);
+}
+
+html[data-termix-shell="edex"] .edex-boot-splash {
+  background: color-mix(
+    in srgb,
+    var(--edex-shell-theme-background, #020508) 92%,
+    transparent
+  );
+}
+
+.edex-boot-splash__bar {
+  transition: width 80ms linear;
+  background: color-mix(
+    in srgb,
+    var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 78%,
+    transparent
+  );
+}
+
+.edex-keyboard-hud__key--active {
+  color: var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) !important;
+  border-color: color-mix(
+      in srgb,
+      var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 85%,
+      transparent
+    )
+    !important;
+  box-shadow: 0 0 12px
+    color-mix(
+      in srgb,
+      var(--edex-shell-theme-accent, rgb(var(--edex-shell-neon-rgb))) 35%,
+      transparent
+    );
+}
+
+/* AppView embedded in eDEX tab stage: full-bleed module, no double rounding */
+html[data-termix-shell="edex"] .appview-edex-stage {
+  border-color: color-mix(
+    in srgb,
+    var(--edex-shell-theme-border, rgb(var(--edex-shell-neon-rgb))) 28%,
+    var(--border-base) 72%
+  );
+  box-shadow: inset 0 0 0 1px
+    rgb(var(--edex-shell-neon-rgb) / var(--edex-shell-frame-alpha, 0.12));
+}
+
+/* Split ResizablePanelGroup root when `shellUi === "edex"` */
+html[data-termix-shell="edex"] .edex-split-workspace {
+  box-shadow: inset 0 0 0 1px
+    color-mix(
+      in srgb,
+      var(--edex-shell-theme-border, rgb(var(--edex-shell-neon-rgb))) 18%,
+      transparent
+    );
+}

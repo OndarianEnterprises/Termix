@@ -7,7 +7,7 @@ import tseslint from "typescript-eslint";
 import { globalIgnores } from "eslint/config";
 
 export default tseslint.config([
-  globalIgnores(["dist", "release", "Mobile"]),
+  globalIgnores(["dist", "release", "Mobile", "packages/edex-vite-shell/dist", "packages/edex-vite-shell/playwright-report", "packages/edex-vite-shell/test-results"]),
   {
     files: ["**/*.{ts,tsx}"],
     extends: [
@@ -44,6 +44,35 @@ export default tseslint.config([
       "react-hooks/exhaustive-deps": "warn",
       "react-hooks/rules-of-hooks": "error",
       "react-refresh/only-export-components": "warn",
+    },
+  },
+  {
+    files: ["packages/edex-vite-shell/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "electron",
+              message:
+                "edex-vite-shell is browser-only; use packages/edex-vite-shell/src/electron/electronShim.ts or Termix APIs in Phase B.",
+            },
+            {
+              name: "@electron/remote",
+              message:
+                "edex-vite-shell is browser-only; use electronShim / Termix APIs instead of @electron/remote.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@electron/*"],
+              message:
+                "edex-vite-shell is browser-only; do not import @electron/* packages here.",
+            },
+          ],
+        },
+      ],
     },
   },
 ]);

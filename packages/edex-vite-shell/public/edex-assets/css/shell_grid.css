@@ -1,0 +1,474 @@
+/* Five-region shell: top row 20fr / 60fr / 20fr; bottom row 50% / 50% (filesystem | keyboard). */
+
+body:has(#edex_shell_grid) {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+}
+
+body:has(#edex_shell_grid) #root {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#edex_shell_grid {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100vw;
+    height: calc(100dvh - 1.85vh);
+    max-height: calc(100vh - 1.85vh);
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 0 0.35vw 0.35vh;
+    gap: 0.55vh;
+}
+
+#edex_shell_grid_top {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 20fr 60fr 20fr;
+    gap: 0.45vw;
+    align-items: stretch;
+}
+
+#edex_shell_grid_bottom {
+    flex: 0 0 auto;
+    min-height: min(30vh, 36%);
+    max-height: min(38vh, 42%);
+    height: min(30vh, 36%);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45vw;
+    min-width: 0;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats,
+#edex_shell_grid_top .edex_shell_cell--terminal,
+#edex_shell_grid_top .edex_shell_cell--globe {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats section#mod_column_left {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    opacity: 1;
+    align-items: stretch;
+    padding-left: 0.2vw;
+    padding-right: 0.2vw;
+}
+
+#edex_shell_grid_top .edex_shell_cell--terminal section#main_shell {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    align-self: stretch;
+}
+
+#edex_shell_grid_top .edex_shell_cell--globe section#mod_column_right {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    opacity: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    justify-content: flex-start;
+    gap: 0.25vh;
+}
+
+#edex_shell_grid_top .edex_shell_cell--globe .edex_shell_globe_slot {
+    flex: 1 1 55%;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#edex_shell_grid_top .edex_shell_cell--globe .edex_shell_globe_slot #mod_globe {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.edex_shell_right_inner {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+}
+
+.edex_shell_right_metrics {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 45%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats .edex_mod_host_metrics_stack--left {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: none;
+}
+
+#edex_shell_grid section > h3.title:first-child {
+    position: relative;
+    top: 0;
+    left: 0;
+    right: auto;
+    width: 100%;
+    flex-shrink: 0;
+    margin-bottom: 0.15vh;
+}
+
+#edex_shell_grid section#main_shell > h3.title {
+    position: relative;
+    left: 0;
+    top: 0;
+    width: 100%;
+}
+
+#edex_shell_grid_bottom .edex_shell_cell--fs {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#edex_shell_grid_bottom .edex_shell_cell--fs section#filesystem {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    width: 100%;
+    margin: 0;
+    margin-right: 0;
+    padding-top: 0.35vh;
+    border-top: 0.14vh solid rgba(var(--color_r), var(--color_g), var(--color_b), 0.35);
+    box-sizing: border-box;
+    top: 0;
+    opacity: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+#edex_shell_grid_bottom .edex_shell_cell--fs section#filesystem > h3.title {
+    width: 100%;
+}
+
+#edex_shell_grid_bottom .edex_shell_cell--fs div#fs_disp_container {
+    width: 100%;
+    left: 0;
+    top: 0.6vh;
+    height: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    box-sizing: border-box;
+    overflow: hidden;
+    grid-template-columns: repeat(auto-fill, minmax(5.5vh, 1fr));
+    grid-auto-rows: minmax(0, 5vh);
+    grid-gap: 0.45vh;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats section#mod_column_left > div {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 0.2vh;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats section#mod_column_left > div > #mod_termix_quick {
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats #mod_toplist h1 {
+    margin-bottom: 0.12vh;
+}
+
+#edex_shell_grid_bottom .edex_shell_cell--keyboard {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+#edex_shell_grid_bottom .edex_shell_cell--keyboard #edex_keyboard_shell {
+    width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
+}
+
+.edex_mod_host_metrics_stack.edex_mod_host_metrics_stack--right {
+    max-height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.edex_mod_host_metrics_stack.edex_mod_host_metrics_stack--solo {
+    max-height: 100%;
+}
+
+/* Reset upstream `mod_column` absolute sizing so columns fill grid cells. */
+#edex_shell_grid section.mod_column {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+#edex_shell_grid section.mod_column > h3.title {
+    width: 100%;
+    left: auto;
+    right: auto;
+}
+
+/* No panel scrollbars: clip overflow; flex children share vertical space. */
+#edex_shell_grid,
+#edex_shell_grid * {
+    scrollbar-width: none;
+}
+
+#edex_shell_grid *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats .edex_mod_host_metrics_stack {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-right: 0;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats .edex_mod_host_metrics_stack > div#mod_cpuinfo,
+#edex_shell_grid_top .edex_shell_cell--stats .edex_mod_host_metrics_stack > div#mod_ramwatcher,
+#edex_shell_grid_top .edex_shell_cell--stats .edex_mod_host_metrics_stack > div#mod_netstat {
+    flex-shrink: 0;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats .edex_mod_host_metrics_stack > div#mod_toplist {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    padding-top: 0.35vh;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats #mod_toplist br {
+    display: none;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats #mod_toplist_table {
+    display: block;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    margin-top: 0.1vh;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats #mod_toplist_table tbody {
+    display: block;
+    overflow: hidden;
+}
+
+#edex_shell_grid_top .edex_shell_cell--stats #mod_toplist_table tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+#edex_shell_grid_top .edex_shell_cell--globe .edex_shell_right_metrics .edex_mod_host_metrics_stack {
+    overflow: hidden;
+    min-height: 0;
+}
+
+#edex_shell_grid_top .edex_shell_cell--globe .edex_shell_right_metrics #mod_netstat {
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+#edex_shell_grid #edex_hosts_panel .edex_hosts_panel_scroll {
+    overflow: hidden;
+}
+
+#edex_shell_grid #edex_hosts_panel .edex_hosts_panel_row {
+    min-height: 0;
+    padding: 0.28vh 0.35vw;
+}
+
+#edex_shell_grid #edex_hosts_panel .edex_hosts_panel_toolbar button {
+    min-height: 0;
+    padding: 0.25vh 0.4vw;
+}
+
+#edex_shell_grid_bottom .edex_shell_cell--fs div#fs_disp_container > * {
+    width: 5.5vh;
+    height: 5.5vh;
+    min-width: 0;
+    min-height: 0;
+}
+
+#edex_shell_grid_bottom .edex_shell_cell--fs div#fs_disp_container > * svg {
+    width: 3.6vh;
+    height: 3.6vh;
+}
+
+#edex_shell_grid_bottom section#keyboard {
+    --edex-kb-row-gap: 0.22vmin;
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: var(--edex-kb-row-gap);
+    box-sizing: border-box;
+}
+
+#edex_shell_grid_bottom section#keyboard.animation_state_1 > .keyboard_row,
+#edex_shell_grid_bottom section#keyboard.animation_state_2 > .keyboard_row {
+    width: 100% !important;
+    max-width: 100%;
+}
+
+#edex_shell_grid_bottom div.keyboard_row {
+    flex: 1 1 0;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    margin: 0;
+    flex-wrap: nowrap;
+    justify-content: stretch;
+    align-items: stretch;
+    gap: 0.22vmin;
+    box-sizing: border-box;
+}
+
+#edex_shell_grid_bottom div.keyboard_row:last-child {
+    left: 0;
+}
+
+#edex_shell_grid_bottom div.keyboard_key {
+    flex: 1 1 0;
+    min-width: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0;
+    margin: 0 0.08vmin;
+    box-sizing: border-box;
+}
+
+#edex_shell_grid_bottom div.keyboard_row:not(:nth-child(4)):not(:last-child) > .keyboard_key:last-child,
+#edex_shell_grid_bottom div.keyboard_row > .keyboard_key:first-child {
+    flex: 1.35 1 0;
+    min-width: 0 !important;
+    width: auto !important;
+}
+
+#edex_shell_grid_bottom div.keyboard_key#keyboard_spacebar {
+    flex: 5.5 1 0;
+    min-width: 0 !important;
+    width: auto !important;
+    height: auto !important;
+}
+
+#edex_shell_grid_bottom div.keyboard_row#row_1 > div.keyboard_enter {
+    flex: 1.2 1 0;
+    min-width: 0 !important;
+    width: auto !important;
+    height: auto !important;
+}
+
+#edex_shell_grid_bottom div.keyboard_row#row_2 > div.keyboard_enter {
+    flex: 1.15 1 0;
+    min-width: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    top: 0;
+    right: 0;
+    margin-top: 0;
+}
+
+#edex_shell_grid_bottom div.keyboard_key > h1,
+#edex_shell_grid_bottom div.keyboard_key > h4,
+#edex_shell_grid_bottom div.keyboard_row > .keyboard_key:last-child > *,
+#edex_shell_grid_bottom div.keyboard_row > .keyboard_key:first-child > * {
+    font-size: clamp(0.65rem, 1.65vmin, 1.05rem);
+}
+
+#edex_shell_grid_bottom div.keyboard_row:not(:nth-child(4)):not(:last-child) > .keyboard_key:last-child > *,
+#edex_shell_grid_bottom div.keyboard_row > .keyboard_key:first-child > *,
+#edex_shell_grid_bottom div.keyboard_row:last-child > .keyboard_key > *,
+#edex_shell_grid_bottom div.keyboard_row:nth-child(4) > .keyboard_key:nth-last-child(2) > * {
+    font-size: clamp(0.55rem, 1.35vmin, 0.95rem);
+}
+
+#edex_shell_grid_bottom div.keyboard_key > *:not(h1) {
+    font-size: clamp(0.5rem, 1.2vmin, 0.85rem);
+}
+
+#edex_shell_grid section#main_shell > div#main_shell_body {
+    gap: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #edex_shell_grid_bottom section#keyboard {
+        transition: none;
+    }
+}

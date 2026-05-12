@@ -10,6 +10,7 @@ import { TabDropdown } from "@/ui/desktop/navigation/tabs/TabDropdown.tsx";
 import { SSHToolsSidebar } from "@/ui/desktop/apps/tools/SSHToolsSidebar.tsx";
 import { useCommandHistory } from "@/ui/desktop/apps/features/terminal/command-history/CommandHistoryContext.tsx";
 import { QuickConnectDialog } from "@/ui/desktop/navigation/dialogs/QuickConnectDialog.tsx";
+import { cn } from "@/lib/utils";
 
 import type { TabContextTab } from "@/types";
 
@@ -19,14 +20,26 @@ interface TopNavbarProps {
   isTopbarOpen: boolean;
   setIsTopbarOpen: (open: boolean) => void;
   onRightSidebarStateChange?: (isOpen: boolean, width: number) => void;
+  /**
+   * Optional override for the navbar's left offset. Used by full-screen shells
+   * that are not wrapped in the classic floating sidebar layout.
+   */
+  leftOffset?: string;
+  /** eDEX full-screen shell uses alternate chrome (grid / neon tab strip). */
+  chromeVariant?: "classic" | "edex";
 }
 
 export function TopNavbar({
   isTopbarOpen,
   setIsTopbarOpen,
   onRightSidebarStateChange,
+  leftOffset,
+  chromeVariant = "classic",
 }: TopNavbarProps): React.ReactElement {
   const { state } = useSidebar();
+  const isEdexChrome = chromeVariant === "edex";
+  /** eDEX full-screen shell: tab strip lives in the shell flex column, not `fixed` to the viewport. */
+  const shellFlowChrome = isEdexChrome;
   const {
     tabs,
     currentTab,
@@ -37,8 +50,10 @@ export function TopNavbar({
     updateTab,
     setPreviewTerminalTheme,
   } = useTabs();
-  const leftPosition =
-    state === "collapsed" ? "26px" : "calc(var(--sidebar-width) + 8px)";
+  const leftPosition = shellFlowChrome
+    ? (leftOffset ?? "0px")
+    : (leftOffset ??
+      (state === "collapsed" ? "26px" : "calc(var(--sidebar-width) + 8px)"));
   const { t } = useTranslation();
   const commandHistory = useCommandHistory();
 
@@ -89,8 +104,10 @@ export function TopNavbar({
   }, [commandHistory, openCommandHistorySidebar]);
 
   const rightPosition = toolsSidebarOpen
-    ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + 8px)`
-    : "17px";
+    ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + ${shellFlowChrome ? 0 : 8}px)`
+    : shellFlowChrome
+      ? "0px"
+      : "17px";
   const [justDroppedTabId, setJustDroppedTabId] = useState<number | null>(null);
   const [isInDropAnimation, setIsInDropAnimation] = useState(false);
   const [dragState, setDragState] = useState<{
@@ -324,18 +341,43 @@ export function TopNavbar({
 
   const isSplitScreenActive =
     Array.isArray(allSplitScreenTab) && allSplitScreenTab.length > 0;
+  const mainBarClassName = cn(
+    "z-10 h-[50px] border-2 border-edge rounded-lg flex flex-row transform-none m-0 p-0",
+    shellFlowChrome ? "relative w-full shrink-0" : "fixed",
+    isEdexChrome && "termix-top-navbar--edex",
+  );
+
+  const mainBarStyle: React.CSSProperties = shellFlowChrome
+    ? {
+        ...(isEdexChrome
+          ? {}
+          : { backgroundColor: "var(--bg-base)" as const }),
+      }
+    : {
+        top: isTopbarOpen ? "0.5rem" : "-3rem",
+        left: leftPosition,
+        right: rightPosition,
+        ...(isEdexChrome
+          ? {}
+          : { backgroundColor: "var(--bg-base)" as const }),
+        transition: "top 200ms linear, left 200ms linear, right 200ms linear",
+      };
+
   return (
-    <div>
-      <div
-        className="fixed z-10 h-[50px] border-2 border-edge rounded-lg flex flex-row transform-none m-0 p-0"
-        style={{
-          top: isTopbarOpen ? "0.5rem" : "-3rem",
-          left: leftPosition,
-          right: rightPosition,
-          backgroundColor: "var(--bg-base)",
-          transition: "top 200ms linear, left 200ms linear, right 200ms linear",
-        }}
-      >
+    <div className={shellFlowChrome ? "flex shrink-0 flex-col" : undefined}>
+      {shellFlowChrome && !isTopbarOpen ? (
+        <button
+          type="button"
+          className={cn(
+            "termix-top-navbar-strip--edex relative z-10 flex h-[10px] w-full shrink-0 cursor-pointer items-center justify-center rounded-bl-md rounded-br-md border-2 border-t-0 border-edge",
+          )}
+          aria-label={t("nav.expandTabBar", { defaultValue: "Show tab bar" })}
+          onClick={() => setIsTopbarOpen(true)}
+        >
+          <ChevronDown size={10} />
+        </button>
+      ) : (
+        <div className={mainBarClassName} style={mainBarStyle}>
         <div
           ref={containerRef}
           className="h-full p-1 pr-2 border-r-2 border-edge w-[calc(100%-6rem)] flex items-center overflow-x-auto overflow-y-hidden skinny-scrollbar gap-1"
@@ -543,19 +585,27 @@ export function TopNavbar({
           </Button>
         </div>
       </div>
+      )}
 
-      {!isTopbarOpen && (
+      {!isTopbarOpen && !shellFlowChrome && (
         <div
           onClick={() => setIsTopbarOpen(true)}
-          className="fixed top-0 cursor-pointer flex items-center justify-center rounded-bl-md rounded-br-md"
+          className={cn(
+            "fixed top-0 cursor-pointer flex items-center justify-center rounded-bl-md rounded-br-md",
+            isEdexChrome && "termix-top-navbar-strip--edex",
+          )}
           style={{
             left: leftPosition,
             right: rightPosition,
             height: "10px",
             zIndex: 9999,
-            backgroundColor: "var(--bg-base)",
-            border: "2px solid var(--border-base)",
-            borderTop: "none",
+            ...(isEdexChrome
+              ? {}
+              : {
+                  backgroundColor: "var(--bg-base)",
+                  border: "2px solid var(--border-base)",
+                  borderTop: "none",
+                }),
           }}
         >
           <ChevronDown size={10} />

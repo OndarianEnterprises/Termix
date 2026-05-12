@@ -10,6 +10,11 @@ import React, {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { TabContextTab, TerminalRefHandle } from "../../../types/index.js";
+import {
+  EDEX_SETTINGS_STORAGE_KEY,
+  normalizeEdexConfig,
+  type EdexConfig,
+} from "@/ui/desktop/apps/edex/edexSettings.ts";
 
 export type Tab = TabContextTab;
 
@@ -86,13 +91,40 @@ export function TabProvider({ children }: TabProviderProps) {
     try {
       const saved = localStorage.getItem("termix_tabs");
       if (saved) {
-        const parsed = JSON.parse(saved) as Tab[];
+        const parsedUnknown = JSON.parse(saved) as unknown;
+        const parsed = Array.isArray(parsedUnknown)
+          ? (parsedUnknown as Array<Partial<Tab> & { type?: unknown }>)
+          : [];
         const restored: Tab[] = [{ id: 1, type: "home", title: "Home" }];
         let maxId = 1;
+        let migratedLegacyEdexTab = false;
         for (const tab of parsed) {
           if (tab.type === "home") continue;
+
+          if (tab.type === "edex") {
+            migratedLegacyEdexTab = true;
+            if (!tab.hostConfig) {
+              continue;
+            }
+
+            const migratedTab: Tab = {
+              ...(tab as Tab),
+              type: "terminal",
+              title: tab.title?.trim() ? tab.title : "Terminal",
+              terminalRef: React.createRef<TerminalRefHandle>(),
+              hostConfig: {
+                ...tab.hostConfig,
+                instanceId: tab.instanceId,
+              },
+            };
+
+            restored.push(migratedTab);
+            if (tab.id > maxId) maxId = tab.id;
+            continue;
+          }
+
           const restoredTab: Tab = {
-            ...tab,
+            ...(tab as Tab),
             instanceId: tab.instanceId,
             terminalRef:
               tab.type === "terminal"
@@ -107,6 +139,25 @@ export function TabProvider({ children }: TabProviderProps) {
           };
           restored.push(restoredTab);
           if (tab.id > maxId) maxId = tab.id;
+        }
+
+        if (migratedLegacyEdexTab) {
+          try {
+            const raw = localStorage.getItem(EDEX_SETTINGS_STORAGE_KEY);
+            const parsedEdex = raw ? JSON.parse(raw) : {};
+            const next: EdexConfig = normalizeEdexConfig({
+              ...(typeof parsedEdex === "object" && parsedEdex !== null
+                ? parsedEdex
+                : {}),
+              shellUi: "edex",
+            });
+            localStorage.setItem(
+              EDEX_SETTINGS_STORAGE_KEY,
+              JSON.stringify(next),
+            );
+          } catch {
+            /* ignore corrupt edex settings */
+          }
         }
         if (restored.length > 1) return restored;
       }

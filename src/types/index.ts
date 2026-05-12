@@ -487,6 +487,7 @@ export interface TabContextTab {
     | "file_manager"
     | "user_profile"
     | "docker"
+    | "tunnel"
     | "network_graph"
     | "rdp"
     | "vnc"

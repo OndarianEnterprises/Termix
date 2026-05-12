@@ -12,6 +12,7 @@ import { CredentialsManager } from "@/ui/desktop/apps/host-manager/credentials/C
 import { CredentialEditor } from "@/ui/desktop/apps/host-manager/credentials/CredentialEditor.tsx";
 import { useSidebar } from "@/components/ui/sidebar.tsx";
 import { useTranslation } from "react-i18next";
+import { useEdexShellEmbeddedStage } from "@/ui/desktop/apps/edex/edexShellFrameContext.tsx";
 import { exportSSHHostWithCredentials } from "@/ui/main-axios.ts";
 import type { SSHHost, HostManagerProps } from "../../../types/index";
 
@@ -47,6 +48,7 @@ export function HostManager({
     username: string;
   } | null>(null);
   const { state: sidebarState } = useSidebar();
+  const embeddedInEdexShell = useEdexShellEmbeddedStage();
   const ignoreNextHostConfigChangeRef = useRef<boolean>(false);
   const lastProcessedHostIdRef = useRef<number | undefined>(undefined);
 
@@ -205,23 +207,32 @@ export function HostManager({
     }
   };
 
-  const topMarginPx = isTopbarOpen ? 74 : 26;
-  const leftMarginPx = sidebarState === "collapsed" ? 26 : 8;
-  const bottomMarginPx = 8;
+  const topMarginPx = embeddedInEdexShell ? 0 : isTopbarOpen ? 74 : 26;
+  const leftMarginPx = embeddedInEdexShell ? 0 : sidebarState === "collapsed" ? 26 : 8;
+  const bottomMarginPx = embeddedInEdexShell ? 0 : 8;
+  const rightChromePx = embeddedInEdexShell ? 0 : 8;
+  const rightEdgePx = embeddedInEdexShell ? 0 : 17;
+  const panelHeight = embeddedInEdexShell
+    ? `calc(100% - ${topMarginPx + bottomMarginPx}px)`
+    : `calc(100vh - ${topMarginPx + bottomMarginPx}px)`;
 
   return (
-    <div>
-      <div className="w-full">
+    <div className={embeddedInEdexShell ? "h-full min-h-0" : undefined}>
+      <div className={embeddedInEdexShell ? "h-full min-h-0 w-full" : "w-full"}>
         <div
-          className="bg-canvas text-foreground p-4 pt-0 rounded-lg border-2 border-edge flex flex-col min-h-0 overflow-hidden"
+          className={
+            embeddedInEdexShell
+              ? "bg-canvas text-foreground p-4 pt-0 rounded-none border border-edge flex flex-col min-h-0 overflow-hidden h-full"
+              : "bg-canvas text-foreground p-4 pt-0 rounded-lg border-2 border-edge flex flex-col min-h-0 overflow-hidden"
+          }
           style={{
             marginLeft: leftMarginPx,
             marginRight: rightSidebarOpen
-              ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + 8px)`
-              : 17,
+              ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + ${rightChromePx}px)`
+              : rightEdgePx,
             marginTop: topMarginPx,
             marginBottom: bottomMarginPx,
-            height: `calc(100vh - ${topMarginPx + bottomMarginPx}px)`,
+            height: panelHeight,
             transition:
               "margin-left 200ms linear, margin-right 200ms linear, margin-top 200ms linear",
           }}

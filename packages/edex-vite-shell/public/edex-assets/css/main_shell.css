@@ -1,0 +1,460 @@
+section#main_shell {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    padding: 0.74vh;
+    /* border: 0.18vh solid rgba(var(--color_r), var(--color_g), var(--color_b), 0.5); */
+    /* border-radius: 0.278vh; */
+
+    --aug-border: 0.18vh;
+    --aug-border-bg: rgb(var(--color_r), var(--color_g), var(--color_b));
+    --aug-border-opacity: 0.5;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    overflow: hidden;
+
+    transition: width .5s cubic-bezier(0.85, 0.5, 0.85, 0.5), height .5s cubic-bezier(0.85, 0.5, 0.85, 0.5);
+}
+
+section#main_shell > div#main_shell_body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    gap: 0;
+}
+
+section#main_shell > div#main_shell_body > div#main_shell_innercontainer {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+}
+
+h1#main_shell_greeting {
+    font-size: 3.9vh;
+    font-weight: normal;
+    margin: auto;
+    opacity: 0;
+    transition: opacity .5s cubic-bezier(0.4, 0, 1, 1);
+}
+
+h1#main_shell_greeting > em {
+    font-style: normal;
+    font-weight: bold;
+}
+
+section#main_shell > h3.title {
+    top: 0.74vh;
+    left: 16.5vw;
+    width: 66%;
+    transition: opacity .5s cubic-bezier(0.4, 0, 1, 1) .5s;
+}
+
+section#main_shell > h3.title > p {
+    width: 49.8%;
+}
+
+ul#main_shell_tabs {
+    margin: 0;
+    margin-top: -0.70vh;
+    margin-left: -0.74vh;
+    padding: 0;
+    width: calc(100% + 1.48vh);
+    display: flex;
+    box-sizing: border-box;
+    border-bottom: 0.18vh solid rgba(var(--color_r), var(--color_g), var(--color_b), 0.5);
+    border-top-left-radius: 0.278vh;
+    border-top-right-radius: 0.278vh;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-evenly;
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+ul#main_shell_tabs > li {
+    cursor: pointer;
+    display: block;
+    font-family: var(--font_main);
+    font-weight: normal;
+    width: 100%;
+    padding-top: 0.7vh;
+    padding-bottom: 0.4vh;
+    text-align: center;
+    box-sizing: border-box;
+
+    background: var(--color_light_black);
+    transform: skewX(35deg);
+}
+ul#main_shell_tabs > li > p {
+    margin: 0;
+    transform: skewX(-35deg);
+}
+ul#main_shell_tabs > li:not(:first-child) {
+    border-left: 0.18vh solid rgba(var(--color_r), var(--color_g), var(--color_b), 0.5);
+}
+
+ul#main_shell_tabs > li.active {
+    background: rgb(var(--color_r), var(--color_g), var(--color_b));
+    color: var(--color_light_black);
+    font-weight: bold;
+    transform: skewX(35deg) scale(1.2);
+    z-index: -1;
+}
+
+div#main_shell_innercontainer {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    margin: 0vh;
+    overflow: hidden;
+    flex-direction: row;
+}
+
+div#main_shell_innercontainer:not(:has(#edex_hosts_panel)) {
+    flex-direction: column;
+}
+
+div#main_shell_innercontainer:has(#edex_hosts_panel) {
+    gap: 0.45vw;
+    align-items: stretch;
+}
+
+#edex_hosts_panel {
+    flex: 0 0 auto;
+    width: min(17rem, 20vw);
+    min-width: 11rem;
+    max-width: 19rem;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0.5vh 0.5vw 0.55vh 0.35vw;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 0.12vh solid rgba(var(--color_r), var(--color_g), var(--color_b), 0.35);
+}
+
+#edex_hosts_panel .edex_hosts_panel_header {
+    margin: 0 0 0.5vh 0;
+}
+
+#edex_hosts_panel .edex_hosts_panel_title {
+    margin: 0;
+    font-family: var(--font_main), sans-serif;
+    font-size: 1.12vh;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--color_r), var(--color_g), var(--color_b));
+    line-height: 1.3;
+}
+
+#edex_hosts_panel .edex_hosts_panel_toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4vw;
+    align-items: center;
+    margin-bottom: 0.55vh;
+}
+
+#edex_hosts_panel .edex_hosts_panel_toolbar button {
+    font-family: var(--font_main), sans-serif;
+    font-size: 1.05vh;
+    cursor: pointer;
+    border-radius: 0.22vh;
+    border: 0.1vh solid rgba(var(--color_r), var(--color_g), var(--color_b), 0.38);
+    color: rgb(var(--color_r), var(--color_g), var(--color_b));
+    background: rgba(0, 0, 0, 0.22);
+    padding: 0.42vh 0.55vw;
+    min-height: max(2.6vh, 26px);
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+#edex_hosts_panel .edex_hosts_panel_toolbar button:hover:not(:disabled) {
+    background: rgba(var(--color_r), var(--color_g), var(--color_b), 0.14);
+    border-color: rgba(var(--color_r), var(--color_g), var(--color_b), 0.55);
+}
+
+#edex_hosts_panel .edex_hosts_panel_toolbar button:active:not(:disabled) {
+    transform: translateY(0.06vh);
+}
+
+#edex_hosts_panel button:focus-visible {
+    outline: 0.14vh solid rgb(var(--color_r), var(--color_g), var(--color_b));
+    outline-offset: 0.16vh;
+}
+
+#edex_hosts_panel .edex_hosts_panel_scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.32vh;
+}
+
+#edex_hosts_panel .edex_hosts_panel_empty {
+    font-family: var(--font_main), sans-serif;
+    font-size: 1.05vh;
+    color: rgba(var(--color_r), var(--color_g), var(--color_b), 0.55);
+    margin: 0.15vh 0 0 0;
+    line-height: 1.45;
+}
+
+#edex_hosts_panel .edex_hosts_panel_row {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+    margin: 0;
+    padding: 0.52vh 0.45vw;
+    min-height: max(4vh, 36px);
+    font-family: var(--font_main), sans-serif;
+    cursor: pointer;
+    border-radius: 0.28vh;
+    border: 0.1vh solid rgba(var(--color_r), var(--color_g), var(--color_b), 0.24);
+    background: rgba(0, 0, 0, 0.18);
+    color: rgb(var(--color_r), var(--color_g), var(--color_b));
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+#edex_hosts_panel .edex_hosts_panel_row[data-active="true"] {
+    border-width: 0.12vh;
+    border-color: rgb(var(--color_r), var(--color_g), var(--color_b));
+    background: rgba(var(--color_r), var(--color_g), var(--color_b), 0.12);
+}
+
+#edex_hosts_panel .edex_hosts_panel_row:hover:not(:disabled) {
+    border-color: rgba(var(--color_r), var(--color_g), var(--color_b), 0.42);
+    background: rgba(0, 0, 0, 0.26);
+}
+
+#edex_hosts_panel .edex_hosts_panel_row:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+}
+
+#edex_hosts_panel .edex_hosts_panel_row_title {
+    display: block;
+    font-size: 1.05vh;
+    font-weight: 500;
+    line-height: 1.25;
+}
+
+#edex_hosts_panel .edex_hosts_panel_row[data-active="true"] .edex_hosts_panel_row_title {
+    font-weight: 700;
+}
+
+#edex_hosts_panel .edex_hosts_panel_row_sub {
+    display: block;
+    font-size: 0.92vh;
+    color: rgba(var(--color_r), var(--color_g), var(--color_b), 0.55);
+    margin-top: 0.18vh;
+    line-height: 1.25;
+    font-weight: 400;
+}
+
+#edex_hosts_panel .edex_hosts_panel_proto {
+    margin-left: 0.35em;
+    text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #edex_hosts_panel .edex_hosts_panel_toolbar button,
+    #edex_hosts_panel .edex_hosts_panel_row {
+        transition: none;
+    }
+    #edex_hosts_panel .edex_hosts_panel_toolbar button:active:not(:disabled) {
+        transform: none;
+    }
+}
+
+ul#main_shell_tabs > li:focus-visible {
+    outline: 0.14vh solid rgb(var(--color_r), var(--color_g), var(--color_b));
+    outline-offset: -0.08vh;
+    z-index: 2;
+    position: relative;
+}
+
+#main_shell_terminal_stack {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+#main_shell_terminal_stack pre {
+    height: 100%;
+    width: 100%;
+    margin: 0vh;
+    z-index: -999;
+    opacity: 0;
+    position: relative;
+}
+
+#main_shell_terminal_stack pre.active {
+    z-index: inherit;
+    opacity: 1;
+}
+
+/* Native Termix terminal fills the stack when embedded (no stacked `pre`). */
+#main_shell_terminal_stack:has(div#terminal0.termix-edex-native-terminal) {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+#main_shell_terminal_stack:has(pre#terminal0.active) {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+#main_shell_terminal_stack pre#terminal0.active {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+}
+
+#main_shell_terminal_stack div#terminal0.termix-edex-native-terminal {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    z-index: inherit;
+    opacity: 1;
+    overflow: hidden;
+}
+
+#main_shell_terminal_stack pre#terminal1 {
+    top: -100%;
+}
+#main_shell_terminal_stack pre#terminal2 {
+    top: -200%;
+}
+#main_shell_terminal_stack pre#terminal3 {
+    top: -300%;
+}
+#main_shell_terminal_stack pre#terminal4 {
+    top: -400%;
+}
+
+.terminal .xterm-viewport {
+    overflow: hidden;
+    cursor: default;
+    position: absolute;
+    right: 0;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    padding-bottom: 10px;
+}
+
+.xterm {
+    font-family: monospace;
+    font-feature-settings: "liga" 0;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.xterm.focus,
+.xterm:focus {
+    outline: none;
+}
+
+.xterm .xterm-helpers {
+    position: absolute;
+    top: 0;
+    z-index: 10;
+}
+
+.xterm .xterm-helper-textarea {
+    position: absolute;
+    opacity: 0;
+    left: -9999em;
+    top: 0;
+    width: 0;
+    height: 0;
+    z-index: -10;
+    white-space: nowrap;
+    overflow: hidden;
+    resize: none;
+}
+
+.xterm .composition-view {
+    background: #000;
+    color: #FFF;
+    display: none;
+    position: absolute;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+.xterm .composition-view.active {
+    display: block;
+}
+
+.xterm .xterm-viewport {
+    background-color: #000;
+    overflow-y: hidden;
+}
+
+.xterm .xterm-screen {
+    position: relative;
+}
+
+.xterm canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.xterm .xterm-scroll-area {
+    visibility: hidden;
+}
+
+.xterm .xterm-char-measure-element {
+    display: inline-block;
+    visibility: hidden;
+    position: absolute;
+    left: -9999em;
+    line-height: normal;
+}
+
+.xterm.enable-mouse-events {
+    /* When mouse events are enabled (eg. tmux), revert to the standard pointer cursor */
+    cursor: default;
+}
+
+.xterm:not(.enable-mouse-events) {
+    cursor: text;
+}
+
+/* Host metrics stack: clip by default (no internal scrollbars; `#edex_shell_grid` flex fits panels). */
+.edex_mod_host_metrics_stack {
+    width: 100%;
+    max-height: 42vh;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    padding-right: 0.2vw;
+    box-sizing: border-box;
+}
+
+.edex_mod_host_metrics_stack.edex_mod_host_metrics_stack--left {
+    max-height: 36vh;
+}
+
+.edex_mod_host_metrics_stack #mod_toplist_table {
+    font-size: 1vh;
+}
+

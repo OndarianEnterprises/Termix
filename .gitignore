@@ -11,6 +11,12 @@ dist
 dist-ssr
 *.local
 
+packages/edex-vite-shell/playwright-report/
+packages/edex-vite-shell/test-results/
+
+# Synced from packages/edex-vite-shell (run npm run sync-edex-vite-public)
+/public/edex-assets/
+
 .vscode/
 .idea
 .DS_Store
@@ -30,3 +36,6 @@ dist-ssr
 electron/build-info.cjs
 /.mcp.json
 /CLAUDE.md
+
+# Local eDEX-UI clone for parity work (see docs/superpowers/specs/edex-upstream-reference.md)
+/vendor/edex-ui-reference/

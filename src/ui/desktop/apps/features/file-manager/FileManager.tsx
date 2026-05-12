@@ -86,10 +86,17 @@ import {
   setSudoPassword,
 } from "@/ui/main-axios.ts";
 import type { SidebarItem } from "./FileManagerSidebar.tsx";
+import { cn } from "@/lib/utils.ts";
 
 interface FileManagerProps {
   initialHost?: SSHHost | null;
   onClose?: () => void;
+  /** Merged onto the root layout container (e.g. `min-w-0` when embedded in narrow panels). */
+  className?: string;
+  /** When true, sidebar + grid row can scroll horizontally (e.g. eDEX mobile/narrow embed). */
+  allowBodyHorizontalScroll?: boolean;
+  /** Strip duplicate outer chrome when embedded in the eDEX shell panels. */
+  chromeAppearance?: "termix" | "edex";
 }
 
 type ConnectionLogPayload = Omit<LogEntry, "id" | "timestamp">;
@@ -131,7 +138,13 @@ function formatFileSize(bytes?: number): string {
   return `${formattedSize} ${units[unitIndex]}`;
 }
 
-function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
+function FileManagerContent({
+  initialHost,
+  onClose,
+  className,
+  allowBodyHorizontalScroll = false,
+  chromeAppearance = "termix",
+}: FileManagerProps) {
   const { openWindow } = useWindowManager();
   const { t } = useTranslation();
   const { confirmWithToast } = useConfirmation();
@@ -2278,7 +2291,13 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
 
   if (!currentHost) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div
+        className={cn(
+          "h-full flex items-center justify-center",
+          className,
+          chromeAppearance === "edex" && "termix-file-manager--edex-chrome",
+        )}
+      >
         <div className="text-center">
           <p className="text-lg text-muted-foreground mb-4">
             {t("fileManager.selectHostToStart")}
@@ -2289,7 +2308,13 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-canvas relative">
+    <div
+      className={cn(
+        "h-full flex flex-col bg-canvas relative",
+        className,
+        chromeAppearance === "edex" && "termix-file-manager--edex-chrome",
+      )}
+    >
       <div
         className="h-full w-full flex flex-col"
         style={{
@@ -2426,7 +2451,13 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
           </div>
         </div>
 
-        <div className="flex-1 flex" {...dragHandlers}>
+        <div
+          className={cn(
+            "flex-1 flex",
+            allowBodyHorizontalScroll && "min-w-0 overflow-x-auto",
+          )}
+          {...dragHandlers}
+        >
           <div className="w-64 flex-shrink-0 h-full">
             <FileManagerSidebar
               currentHost={currentHost}
@@ -2599,10 +2630,10 @@ function FileManagerContent({ initialHost, onClose }: FileManagerProps) {
   );
 }
 
-function FileManagerInner({ initialHost, onClose }: FileManagerProps) {
+function FileManagerInner(props: FileManagerProps) {
   return (
     <WindowManager>
-      <FileManagerContent initialHost={initialHost} onClose={onClose} />
+      <FileManagerContent {...props} />
     </WindowManager>
   );
 }

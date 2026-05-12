@@ -43,6 +43,11 @@ import { PasswordReset } from "@/ui/desktop/user/PasswordReset.tsx";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/ui/desktop/user/LanguageSwitcher.tsx";
 import { useSidebar } from "@/components/ui/sidebar.tsx";
+import { useEdexShellEmbeddedStage } from "@/ui/desktop/apps/edex/edexShellFrameContext.tsx";
+import {
+  useEdexSettings,
+  type EdexShellUi,
+} from "@/ui/desktop/apps/edex/edexSettings.ts";
 import { toast } from "sonner";
 import { C2STunnelPresetManager } from "@/ui/desktop/user/C2STunnelPresetManager.tsx";
 import { SimpleLoader } from "@/ui/desktop/navigation/animations/SimpleLoader.tsx";
@@ -100,7 +105,11 @@ export function UserProfile({
 }: UserProfileProps) {
   const { t } = useTranslation();
   const { state: sidebarState } = useSidebar();
+  const embeddedInEdexShell = useEdexShellEmbeddedStage();
+  const { config: edexUiConfig, updateConfig: updateEdexConfig } =
+    useEdexSettings();
   const { theme, setTheme, setThemePreview } = useTheme();
+  const classicDesktopForced = import.meta.env.VITE_TERMX_CLASSIC_UI === "1";
   const [userInfo, setUserInfo] = useState<{
     username: string;
     is_admin: boolean;
@@ -300,26 +309,33 @@ export function UserProfile({
     }
   };
 
-  const topMarginPx = isTopbarOpen ? 74 : 26;
-  const leftMarginPx = sidebarState === "collapsed" ? 26 : 8;
-  const bottomMarginPx = 8;
+  const topMarginPx = embeddedInEdexShell ? 0 : isTopbarOpen ? 74 : 26;
+  const leftMarginPx = embeddedInEdexShell ? 0 : sidebarState === "collapsed" ? 26 : 8;
+  const bottomMarginPx = embeddedInEdexShell ? 0 : 8;
+  const rightChromePx = embeddedInEdexShell ? 0 : 8;
+  const rightEdgePx = embeddedInEdexShell ? 0 : 17;
   const wrapperStyle: React.CSSProperties = {
     marginLeft: leftMarginPx,
     marginRight: rightSidebarOpen
-      ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + 8px)`
-      : 17,
+      ? `calc(var(--right-sidebar-width, ${rightSidebarWidth}px) + ${rightChromePx}px)`
+      : rightEdgePx,
     marginTop: topMarginPx,
     marginBottom: bottomMarginPx,
-    height: `calc(100vh - ${topMarginPx + bottomMarginPx}px)`,
+    height: embeddedInEdexShell
+      ? `calc(100% - ${topMarginPx + bottomMarginPx}px)`
+      : `calc(100vh - ${topMarginPx + bottomMarginPx}px)`,
     transition:
       "margin-left 200ms linear, margin-right 200ms linear, margin-top 200ms linear",
   };
+  const shellStageSurfaceClass = embeddedInEdexShell
+    ? "bg-canvas text-foreground rounded-none border border-edge overflow-hidden h-full min-h-0"
+    : "bg-canvas text-foreground rounded-lg border-2 border-edge overflow-hidden";
 
   if (!loading && (error || !userInfo)) {
     return (
       <div
         style={wrapperStyle}
-        className="bg-canvas text-foreground rounded-lg border-2 border-edge overflow-hidden"
+        className={shellStageSurfaceClass}
       >
         <div className="h-full w-full flex flex-col">
           <div className="flex items-center justify-between px-3 pt-2 pb-2">
@@ -349,7 +365,7 @@ export function UserProfile({
     <>
       <div
         style={wrapperStyle}
-        className="bg-canvas text-foreground rounded-lg border-2 border-edge overflow-hidden"
+        className={shellStageSurfaceClass}
       >
         <SimpleLoader visible={loading} message={t("common.loading")} />
         <div className="h-full w-full flex flex-col">
@@ -616,6 +632,76 @@ export function UserProfile({
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border-2 border-edge bg-elevated p-4">
+                    <h3 className="text-lg font-semibold mb-4">
+                      {t("profile.edexDesktopShellSection")}
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <Label className="text-foreground-secondary">
+                            {t("profile.edexDesktopShellToggle")}
+                          </Label>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {t("profile.edexDesktopShellToggleDesc")}
+                          </p>
+                          {classicDesktopForced ? (
+                            <p className="text-sm text-muted-foreground mt-2">
+                              {t("profile.edexDesktopShellForcedClassic")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <Switch
+                          checked={
+                            !classicDesktopForced &&
+                            edexUiConfig.shellUi !== "classic"
+                          }
+                          disabled={classicDesktopForced}
+                          onCheckedChange={(enabled) => {
+                            if (!enabled) {
+                              updateEdexConfig({ shellUi: "classic" });
+                            } else {
+                              updateEdexConfig({ shellUi: "edex-vite" });
+                            }
+                          }}
+                        />
+                      </div>
+                      {!classicDesktopForced &&
+                      edexUiConfig.shellUi !== "classic" ? (
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <Label className="text-foreground-secondary">
+                              {t("profile.edexShellVariant")}
+                            </Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {t("profile.edexShellVariantDesc")}
+                            </p>
+                          </div>
+                          <Select
+                            value={edexUiConfig.shellUi}
+                            onValueChange={(v) =>
+                              updateEdexConfig({
+                                shellUi: v as EdexShellUi,
+                              })
+                            }
+                          >
+                            <SelectTrigger className="w-full sm:w-[220px] shrink-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="edex">
+                                {t("profile.edexShellVariantIntegrated")}
+                              </SelectItem>
+                              <SelectItem value="edex-vite">
+                                {t("profile.edexShellVariantVite")}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 

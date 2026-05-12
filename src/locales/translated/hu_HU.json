@@ -3088,5 +3088,58 @@
   "theme": {
     "switchToLight": "Váltás világosra",
     "switchToDark": "Váltás sötétre"
+  },
+  "edex": {
+    "bootSplash": {
+      "brand": "TERMIX",
+      "title": "EDEX INTERFACE",
+      "hint": "Initializing workspace chrome. Press Escape or Skip to continue.",
+      "skip": "Skip",
+      "progressLabel": "Boot sequence progress"
+    },
+    "keyboardHud": {
+      "shortcutsLegend": "SHIFT x2: palette | ALT x2: theme"
+    },
+    "shellSettings": {
+      "trigger": "Shell options",
+      "menuTitle": "eDEX shell",
+      "workspaceLayout": "Workspace layout (panels)",
+      "keyboardHud": "Keyboard HUD",
+      "globe": "Globe backdrop",
+      "globeMarkers": "Globe host markers",
+      "bootSplash": "Boot splash",
+      "bootOncePerSession": "Skip boot after first time (this tab)",
+      "showFiles": "File panel",
+      "showStats": "Stats panel",
+      "themeImportSection": "Theme import",
+      "themePasteFromClipboard": "Paste eDEX theme JSON (clipboard)",
+      "themeClearImport": "Clear imported theme",
+      "themePasteSuccess": "Theme import saved",
+      "themeClearSuccess": "Imported theme cleared",
+      "themePasteEmpty": "Clipboard was empty",
+      "themePasteInvalidJson": "Clipboard is not valid JSON",
+      "themePasteNoColors": "JSON has no supported `colors` keys for the shell",
+      "themePasteClipboardDenied": "Could not read clipboard (permission or context)",
+      "bootSound": "Boot splash chime",
+      "bootQuips": "Boot splash quips",
+      "bootSoundVolume": "Chime volume",
+      "bootSoundVolumeA11y": "Boot splash chime volume"
+    },
+    "bootQuips": [
+      "Handshake with the void returned 200 OK.",
+      "Telemetry hardened. Creativity left unpatched.",
+      "Routing packet poetry through quiet circuits.",
+      "Spectral analysis suggests your terminal is listening.",
+      "Calibration complete: cynicism damped, curiosity boosted."
+    ],
+    "systemMenu": {
+      "trigger": "SYSTEM",
+      "triggerTitle": "System routing (profile, hosts, admin)",
+      "section": "// ROUTING",
+      "profile": "// USER.PROFILE",
+      "admin": "// ADMIN.SOCKET",
+      "hostsOverlay": "// HOST.OVERLAY",
+      "hostMatrix": "// HOST.MATRIX"
+    }
   }
 }
