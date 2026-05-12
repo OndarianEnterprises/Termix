@@ -1,10 +1,12 @@
-import { edexAssetsUrl } from "../utils/edexAssetsUrl";
+import encomGlobeScriptUrl from "../../public/edex-assets/vendor/encom-globe.js?url";
 
 /**
  * Loads upstream `encom-globe.js` (browserify bundle) once; exposes `window.ENCOM.Globe`.
+ * URL is resolved at build time (`?url`) so the file is emitted under `dist/assets/` and
+ * does not depend on `/edex-assets/vendor/` being deployed separately.
  */
 export function loadEncomGlobeScript(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
+  if (!globalThis.window) return Promise.resolve();
   if (window.ENCOM?.Globe) return Promise.resolve();
 
   const existing = document.querySelector(
@@ -36,7 +38,7 @@ export function loadEncomGlobeScript(): Promise<void> {
 
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = edexAssetsUrl("vendor/encom-globe.js");
+    s.src = encomGlobeScriptUrl;
     s.async = true;
     s.dataset.edexEncomGlobe = "1";
     s.onload = () => resolve();
