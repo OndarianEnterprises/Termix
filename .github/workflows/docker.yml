@@ -44,7 +44,7 @@ jobs:
   # One image per plugin profile (docker/bundled-plugins.json). standard keeps
   # the plain tags; minimal and full add a suffix.
   build:
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
