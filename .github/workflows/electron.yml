@@ -272,7 +272,7 @@ jobs:
           retention-days: 30
 
   build-linux:
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     if: (inputs.build_type == 'all' || inputs.build_type == 'linux' || inputs.build_type == '') && inputs.artifact_destination != 'submit'
     permissions:
       contents: write
@@ -532,7 +532,7 @@ jobs:
           retention-days: 30
 
   build-macos:
-    runs-on: blacksmith-6vcpu-macos-latest
+    runs-on: macos-latest
     if: (inputs.build_type == 'macos' || inputs.build_type == 'all') && inputs.artifact_destination != 'submit'
     needs: []
     permissions:
@@ -839,7 +839,7 @@ jobs:
           security delete-keychain $RUNNER_TEMP/dev-signing.keychain-db || true
 
   submit-to-chocolatey:
-    runs-on: blacksmith-4vcpu-windows-2025
+    runs-on: windows-latest
     if: inputs.artifact_destination == 'submit' && (inputs.build_type == 'all' || inputs.build_type == 'windows' || inputs.build_type == '')
     permissions:
       contents: read
@@ -945,7 +945,7 @@ jobs:
           retention-days: 30
 
   submit-to-homebrew:
-    runs-on: blacksmith-6vcpu-macos-latest
+    runs-on: macos-latest
     if: inputs.artifact_destination == 'submit' && (inputs.build_type == 'all' || inputs.build_type == 'macos')
     needs: []
     permissions:
@@ -1018,7 +1018,7 @@ jobs:
           retention-days: 30
 
   upload-to-release:
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     if: inputs.artifact_destination == 'release'
     needs: [build-windows, build-linux, build-macos]
     permissions:
@@ -1056,7 +1056,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   submit-to-app-store:
-    runs-on: blacksmith-6vcpu-macos-latest
+    runs-on: macos-latest
     if: inputs.artifact_destination == 'submit' && (inputs.build_type == 'all' || inputs.build_type == 'macos')
     needs: []
     permissions:

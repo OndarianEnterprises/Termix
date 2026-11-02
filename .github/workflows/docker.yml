@@ -45,7 +45,10 @@ jobs:
   # the plain tags; minimal and full add a suffix.
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -73,9 +76,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Setup Docker Buildx
-        uses: useblacksmith/setup-docker-builder@v2
-        with:
-          cache-key: termix-ssh/termix
+        uses: docker/setup-buildx-action@v3
 
       - name: Determine tags
         id: tags
@@ -99,12 +100,9 @@ jobs:
             TAGS+=("dev-$VERSION$SUFFIX")
           fi
 
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           for tag in "${TAGS[@]}"; do
-            ALL_TAGS+=("ghcr.io/lukegus/termix:$tag")
-            ALL_TAGS+=("ghcr.io/termix-ssh/termix:$tag")
-            if [ "$BUILD_TYPE" != "Development" ]; then
-              ALL_TAGS+=("docker.io/bugattiguy527/termix:$tag")
-            fi
+            ALL_TAGS+=("$IMAGE:$tag")
           done
 
           echo "ALL_TAGS=$(IFS=,; echo "${ALL_TAGS[*]}")" >> $GITHUB_ENV
@@ -115,18 +113,11 @@ jobs:
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
-          username: lukegus
-          password: ${{ secrets.TERMIX_PAT }}
-
-      - name: Login to Docker Hub (prod and beta only)
-        if: ${{ (inputs.build_type == 'Production' || inputs.build_type == 'Beta') && !inputs.dry_run }}
-        uses: docker/login-action@v4
-        with:
-          username: bugattiguy527
-          password: ${{ secrets.DOCKERHUB_BUGATTIGUY527_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push multi-arch image
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./docker/Dockerfile
@@ -141,26 +132,8 @@ jobs:
             org.opencontainers.image.revision=${{ env.SOURCE_SHA }}
             org.opencontainers.image.created=${{ env.BUILD_CREATED }}
           outputs: ${{ inputs.dry_run && 'type=cacheonly' || 'type=registry,compression=zstd' }}
-
-      - name: Login to Docker Hub as termixssh
-        id: termix_hub
-        if: ${{ (inputs.build_type == 'Production' || inputs.build_type == 'Beta') && !inputs.dry_run }}
-        env:
-          TOKEN: ${{ secrets.DOCKERHUB_TERMIXSSH_TOKEN }}
-        run: |
-          if [ -z "$TOKEN" ]; then
-            echo "DOCKERHUB_TERMIXSSH_TOKEN is not set, skipping docker.io/termixssh"
-            exit 0
-          fi
-          echo "$TOKEN" | docker login docker.io --username termixssh --password-stdin
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-
-      - name: Copy image to docker.io/termixssh
-        if: ${{ steps.termix_hub.outputs.ready == 'true' }}
-        run: |
-          for tag in $TAGS; do
-            docker buildx imagetools create --tag "docker.io/termixssh/termix:$tag" "ghcr.io/termix-ssh/termix:$tag"
-          done
+          cache-from: type=gha,scope=${{ matrix.profile }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.profile }}
 
       - name: Cleanup Docker
         if: always()

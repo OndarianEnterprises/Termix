@@ -53,7 +53,7 @@ jobs:
 
   database-dialects:
     name: Postgres and MySQL
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
 
     services:
       postgres:
