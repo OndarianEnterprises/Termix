@@ -59,7 +59,7 @@ on:
 
 jobs:
   build-windows:
-    runs-on: blacksmith-4vcpu-windows-2025
+    runs-on: windows-latest
     if: (inputs.build_type == 'all' || inputs.build_type == 'windows' || inputs.build_type == '') && inputs.artifact_destination != 'submit'
     permissions:
       contents: write
